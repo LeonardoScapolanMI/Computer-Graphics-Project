@@ -8,7 +8,8 @@ const std::string TEXTURE_PATH = "textures/viking_room.png";
 // The uniform buffer object used in this example
 struct UniformBufferObject {
 	alignas(16) glm::mat4 model;
-	alignas(16) glm::mat4 view;	alignas(16) glm::mat4 proj;
+	alignas(16) glm::mat4 view;
+	alignas(16) glm::mat4 proj;
 };
 
 
@@ -92,9 +93,11 @@ class MyProject : public BaseProject {
 				P1.graphicsPipeline);
 				
 		VkBuffer vertexBuffers[] = {M1.vertexBuffer};
-		// property .vertexBuffer of models, contains the VkBuffer handle to its vertex buffer		VkDeviceSize offsets[] = {0};
+		// property .vertexBuffer of models, contains the VkBuffer handle to its vertex buffer
+		VkDeviceSize offsets[] = {0};
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-		// property .indexBuffer of models, contains the VkBuffer handle to its index buffer		vkCmdBindIndexBuffer(commandBuffer, M1.indexBuffer, 0,
+		// property .indexBuffer of models, contains the VkBuffer handle to its index buffer
+		vkCmdBindIndexBuffer(commandBuffer, M1.indexBuffer, 0,
 								VK_INDEX_TYPE_UINT32);
 
 		// property .pipelineLayout of a pipeline contains its layout.
@@ -104,7 +107,8 @@ class MyProject : public BaseProject {
 						P1.pipelineLayout, 0, 1, &DS1.descriptorSets[currentImage],
 						0, nullptr);
 						
-		// property .indices.size() of models, contains the number of triangles * 3 of the mesh.		vkCmdDrawIndexed(commandBuffer,
+		// property .indices.size() of models, contains the number of triangles * 3 of the mesh.
+		vkCmdDrawIndexed(commandBuffer,
 					static_cast<uint32_t>(M1.indices.size()), 1, 0, 0, 0);
 	}
 
@@ -124,7 +128,8 @@ class MyProject : public BaseProject {
 		ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
 							   glm::vec3(0.0f, 0.0f, 0.0f),
 							   glm::vec3(0.0f, 0.0f, 1.0f));
-		ubo.proj = glm::perspective(glm::radians(45.0f),						swapChainExtent.width / (float) swapChainExtent.height,
+		ubo.proj = glm::perspective(glm::radians(45.0f),
+						swapChainExtent.width / (float) swapChainExtent.height,
 						0.1f, 10.0f);
 		ubo.proj[1][1] *= -1;
 		
@@ -132,7 +137,8 @@ class MyProject : public BaseProject {
 
 		// Here is where you actually update your uniforms
 		vkMapMemory(device, DS1.uniformBuffersMemory[0][currentImage], 0,
-							sizeof(ubo), 0, &data);		memcpy(data, &ubo, sizeof(ubo));
+							sizeof(ubo), 0, &data);
+		memcpy(data, &ubo, sizeof(ubo));
 		vkUnmapMemory(device, DS1.uniformBuffersMemory[0][currentImage]);
 	}	
 };
