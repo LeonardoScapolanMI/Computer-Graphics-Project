@@ -14,6 +14,17 @@ const std::vector<std::string> MODEL_PATHS = {
 };
 // const std::string TEXTURE_PATH = "textures/viking_room.png";
 
+// The uniform buffer object used in this example
+struct globalUniformBufferObject {
+	alignas(16) glm::mat4 view;
+	alignas(16) glm::mat4 proj;
+};
+
+struct UniformBufferObject {
+	alignas(16) glm::mat4 model;
+};
+
+// class containing the informations for each model
 class ModelInfo {
 private:
 	std::string path;
@@ -37,16 +48,17 @@ public:
 	}
 };
 
-// The uniform buffer object used in this example
-struct globalUniformBufferObject {
-	alignas(16) glm::mat4 view;
-	alignas(16) glm::mat4 proj;
-};
-
-struct UniformBufferObject {
-	alignas(16) glm::mat4 model;
-};
-
+// function to make a look in view matrix starting from the camera position and it's rotation (angles in radiants)
+// cameraPos: coordinates of the camera
+// alpha: angle of the camera with respect to the y axis (horizontal looking direction, yaw)
+// beta: angle of the camera with respect to the x axis (vertical elevation, pitch)
+// rho: angle of the camera with respect to the z axis (inclination, roll)
+glm::mat4 lookIn(glm::vec3 cameraPos, float alpha, float beta, float rho) {
+	return glm::rotate(glm::mat4(1.0), -rho, glm::vec3(0, 0, 1))
+		* glm::rotate(glm::mat4(1.0), -beta, glm::vec3(1, 0, 0))
+		* glm::rotate(glm::mat4(1.0), -alpha, glm::vec3(0, 1, 0))
+		* glm::translate(glm::mat4(1.0), -cameraPos);
+}
 
 // MAIN ! 
 class MyProject : public BaseProject {
@@ -169,34 +181,92 @@ class MyProject : public BaseProject {
 		}
 	}
 
+	glm::mat4 computeNewViewMatrix(float deltaTime) {
+		static glm::mat4 viewMatrix = lookIn(glm::vec3(0.0f, 8.0f, 0.0f), glm::radians(0.0f), glm::radians(-90.0f), glm::radians(0.0f));
+
+		static float linearSpeed = 1.0f;
+		static float angularSpeed = glm::radians(30.0f);
+
+		glm::vec3 mov = glm::vec3(0, 0, 0);
+		glm::vec3 rot = glm::vec3(0, 0, 0);
+
+		if (glfwGetKey(window, GLFW_KEY_A)) {
+			mov.x -= 1;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_D)) {
+			mov.x += 1;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_S)) {
+			mov.y -= 1;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_W)) {
+			mov.y += 1;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_E)) {
+			mov.z -= 1;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_Q)) {
+			mov.z += 1;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_LEFT)) {
+			rot.y -= 1;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_RIGHT)) {
+			rot.y += 1;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_DOWN)) {
+			rot.x += 1;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_UP)) {
+			rot.x -= 1;
+		}
+
+		viewMatrix = glm::translate(glm::mat4(1.0), linearSpeed * deltaTime * (-mov))
+			* glm::rotate(glm::mat4(1.0), angularSpeed * deltaTime * rot.z, glm::vec3(0, 0, 1))
+			* glm::rotate(glm::mat4(1.0), angularSpeed * deltaTime * rot.y, glm::vec3(0, 1, 0))
+			* glm::rotate(glm::mat4(1.0), angularSpeed * deltaTime * rot.x, glm::vec3(1, 0, 0))
+			* viewMatrix;
+
+		return viewMatrix;
+	}
+
 	// Here is where you update the uniforms.
 	// Very likely this will be where you will be writing the logic of your application.
 	void updateUniformBuffer(uint32_t currentImage) {
-		static auto startTime = std::chrono::high_resolution_clock::now();
+		static auto lastTime = std::chrono::high_resolution_clock::now();
+
 		auto currentTime = std::chrono::high_resolution_clock::now();
-		float time = std::chrono::duration<float, std::chrono::seconds::period>
-					(currentTime - startTime).count();
-					
-					
+		float dt = std::chrono::duration<float, std::chrono::seconds::period>
+			(currentTime - lastTime).count();
+		lastTime = currentTime;
+
+
 		globalUniformBufferObject gubo{};
 		UniformBufferObject ubo{};
 
-		ubo.model = glm::rotate(glm::mat4(1.0f),
+		ubo.model = glm::mat4(1.0f); /* glm::rotate(glm::mat4(1.0f),
 								time * glm::radians(90.0f),
-								glm::vec3(0.0f, 0.0f, 1.0f));
-		gubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
-							   glm::vec3(0.0f, 0.0f, 0.0f),
-							   glm::vec3(0.0f, 0.0f, 1.0f));
+								glm::vec3(0.0f, 0.0f, 1.0f)); */
+		gubo.view = computeNewViewMatrix(dt); //camera looking down at the start
 		gubo.proj = glm::perspective(glm::radians(45.0f),
-						swapChainExtent.width / (float) swapChainExtent.height,
-						0.1f, 10.0f);
+			swapChainExtent.width / (float)swapChainExtent.height,
+			0.1f, 10.0f);
 		gubo.proj[1][1] *= -1;
-		
+
 		void* data;
 
 		// Here is where you actually update your uniforms
 		vkMapMemory(device, globalDS.uniformBuffersMemory[0][currentImage], 0,
-							sizeof(gubo), 0, &data);
+			sizeof(gubo), 0, &data);
 		memcpy(data, &gubo, sizeof(gubo));
 		vkUnmapMemory(device, globalDS.uniformBuffersMemory[0][currentImage]);
 
@@ -207,7 +277,7 @@ class MyProject : public BaseProject {
 			memcpy(data, &ubo, sizeof(ubo));
 			vkUnmapMemory(device, mi.DS.uniformBuffersMemory[0][currentImage]);
 		}
-	}	
+	}
 };
 
 // This is the main: probably you do not need to touch this!
