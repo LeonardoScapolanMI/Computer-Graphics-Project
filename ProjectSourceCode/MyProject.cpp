@@ -239,6 +239,21 @@ class MyProject : public BaseProject {
 		return viewMatrix;
 	}
 
+	glm::mat4 MakeWorldMatrixEuler(glm::vec3 pos, glm::vec3 YPR, glm::vec3 size) {
+		glm::mat4 out;
+		glm::mat4 Pos = glm::translate(glm::mat4(1.0), glm::vec3(pos.x, pos.y, pos.z));
+		glm::mat4 RotYaw = glm::rotate(glm::mat4(1.0), glm::radians(YPR.x), glm::vec3(0, 1, 0));
+		glm::mat4 RotPitch = glm::rotate(glm::mat4(1.0), glm::radians(YPR.y), glm::vec3(1, 0, 0));
+		glm::mat4 RotRoll = glm::rotate(glm::mat4(1.0), glm::radians(YPR.z), glm::vec3(0, 0, 1));
+		glm::mat4 Sca = glm::scale(glm::mat4(1.0), glm::vec3(size.x, size.y, size.z));
+		out = Pos * RotYaw * RotPitch * RotRoll * Sca;
+		return out;
+	}
+
+	std::vector<glm::vec3> ObjsPos;
+	std::vector<glm::vec3> ObjsEuler;
+	std::vector<glm::vec3> ObjsSize;
+
 	// Here is where you update the uniforms.
 	// Very likely this will be where you will be writing the logic of your application.
 	void updateUniformBuffer(uint32_t currentImage) {
@@ -251,32 +266,75 @@ class MyProject : public BaseProject {
 
 
 		globalUniformBufferObject gubo{};
-		UniformBufferObject ubo{};
 
-		ubo.model = glm::mat4(1.0f); /* glm::rotate(glm::mat4(1.0f),
-								time * glm::radians(90.0f),
-								glm::vec3(0.0f, 0.0f, 1.0f)); */
+		ObjsPos.resize(8);
+		ObjsEuler.resize(8);
+		ObjsSize.resize(8);
+
+		ObjsPos[0] = glm::vec3(0.0f, 1.0f, -1.0f);
+		ObjsEuler[0] = glm::vec3(0.0f, 0.0f, 0.0f);
+		ObjsSize[0] = glm::vec3(1.0f, 1.0f, 1.0f);
+
+		ObjsPos[1] = glm::vec3(1.0f, 1.0f, 0.0f);
+		ObjsEuler[1] = glm::vec3(0.0f, 0.0f, 0.0f);
+		ObjsSize[1] = glm::vec3(1.0f, 1.0f, 1.0f);
+
+		ObjsPos[2] = glm::vec3(-1.0f, 1.0f, 0.0f);
+		ObjsEuler[2] = glm::vec3(0.0f, 0.0f, 0.0f);
+		ObjsSize[2] = glm::vec3(1.0f, 1.0f, 1.0f);
+
+		ObjsPos[3] = glm::vec3(-2.0f, 1.0f, 0.0f);
+		ObjsEuler[3] = glm::vec3(0.0f, 0.0f, 0.0f);
+		ObjsSize[3] = glm::vec3(1.0f, 1.0f, 1.0f);
+
+		ObjsPos[4] = glm::vec3(2.0f, 1.0f, 0.0f);
+		ObjsEuler[4] = glm::vec3(0.0f, 0.0f, 0.0f);
+		ObjsSize[4] = glm::vec3(1.0f, 1.0f, 1.0f);
+
+		ObjsPos[5] = glm::vec3(-3.0f, 1.0f, 0.0f);
+		ObjsEuler[5] = glm::vec3(0.0f, 0.0f, 0.0f);
+		ObjsSize[5] = glm::vec3(1.0f, 1.0f, 1.0f);
+
+		ObjsPos[6] = glm::vec3(3.0f, 1.0f, 0.0f);
+		ObjsEuler[6] = glm::vec3(0.0f, 0.0f, 0.0f);
+		ObjsSize[6] = glm::vec3(1.0f, 1.0f, 1.0f);
+
+		ObjsPos[7] = glm::vec3(3.0f, 1.0f, 0.0f);
+		ObjsEuler[7] = glm::vec3(0.0f, 0.0f, 0.0f);
+		ObjsSize[7] = glm::vec3(1.0f, 1.0f, 1.0f);
+
+		int i = 0;
+		void* data;
+
+		for (ModelInfo mi : modelInfos) {
+			UniformBufferObject ubo{};
+
+			ubo.model = glm::scale(MakeWorldMatrixEuler(ObjsPos[i], ObjsEuler[i], ObjsSize[i]), glm::vec3(1.0, 1.0, 1.0));
+			i++;
+
+			// Here is where you actually update your uniforms
+
+			//for (ModelInfo mi : modelInfos)
+			//{
+
+			vkMapMemory(device, mi.DS.uniformBuffersMemory[0][currentImage], 0,
+				sizeof(ubo), 0, &data);
+			memcpy(data, &ubo, sizeof(ubo));
+			vkUnmapMemory(device, mi.DS.uniformBuffersMemory[0][currentImage]);
+			//}
+
+		}
+
 		gubo.view = computeNewViewMatrix(dt); //camera looking down at the start
 		gubo.proj = glm::perspective(glm::radians(45.0f),
 			swapChainExtent.width / (float)swapChainExtent.height,
 			0.1f, 10.0f);
 		gubo.proj[1][1] *= -1;
-
-		void* data;
-
-		// Here is where you actually update your uniforms
+		
 		vkMapMemory(device, globalDS.uniformBuffersMemory[0][currentImage], 0,
 			sizeof(gubo), 0, &data);
 		memcpy(data, &gubo, sizeof(gubo));
 		vkUnmapMemory(device, globalDS.uniformBuffersMemory[0][currentImage]);
-
-		for (ModelInfo mi : modelInfos)
-		{
-			vkMapMemory(device, mi.DS.uniformBuffersMemory[0][currentImage], 0,
-				sizeof(ubo), 0, &data);
-			memcpy(data, &ubo, sizeof(ubo));
-			vkUnmapMemory(device, mi.DS.uniformBuffersMemory[0][currentImage]);
-		}
 	}
 };
 
