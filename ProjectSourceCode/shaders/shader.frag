@@ -2,6 +2,13 @@
 
 //layout(binding = 1) uniform sampler2D texSampler;
 
+layout(set = 1, binding = 0) uniform UniformBufferObject {
+	mat4 model;
+	vec4 color;
+	float selected;
+} ubo;
+
+
 layout(location = 0) in vec3 fragViewDir;
 layout(location = 1) in vec3 fragNorm;
 layout(location = 2) in vec2 fragTexCoord;
@@ -9,7 +16,8 @@ layout(location = 2) in vec2 fragTexCoord;
 layout(location = 0) out vec4 outColor;
 
 void main() {
-	const vec3  diffColor = vec3(1.0f, 0.0f, 0.0f);
+	vec3  diffColor = ubo.color.rgb;
+	if(ubo.selected > 0) diffColor = vec3(1.0f, 1.0f, 1.0f);
 	const vec3  specColor = vec3(1.0f, 1.0f, 1.0f);
 	const float specPower = 150.0f;
 	const vec3  L = vec3(-0.4830f, 0.8365f, -0.2588f);

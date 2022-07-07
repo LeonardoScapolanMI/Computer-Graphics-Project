@@ -76,7 +76,7 @@ glm::mat4 lookIn(glm::vec3 cameraPos, float alpha, float beta, float rho) {
 // MAIN ! 
 class MyProject : public BaseProject {
 	private:
-	int	selectedModelIndex;
+	int	selectedModelIndex = 0;
 
 	protected:
 	// Here you list all the Vulkan objects you need:
@@ -94,7 +94,9 @@ class MyProject : public BaseProject {
 	DescriptorSet globalDS;
 
 	void selectModel(int index) {
+		modelInfos[selectedModelIndex].selected = false;
 		modelInfos[index].selected = true;
+		// std::cerr << index;
 		selectedModelIndex = index;
 	}
 	
@@ -111,6 +113,63 @@ class MyProject : public BaseProject {
 		texturesInPool = 1;
 		setsInPool = 1 + MODEL_PATHS.size();
 	}
+
+	static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+	{
+		MyProject* that = static_cast<MyProject*>(glfwGetWindowUserPointer(window));
+		int selectedModelIndex = that->selectedModelIndex;
+		std::vector<ModelInfo> modelInfos = that->modelInfos;
+
+		float angleMin;
+		float angleMax;
+		if (key == GLFW_KEY_D && action == GLFW_RELEASE) {
+			angleMin = glm::radians(-45.0f);
+			angleMax = glm::radians(45.0f);
+		}
+		else if (key == GLFW_KEY_W && action == GLFW_RELEASE) {
+			angleMin = glm::radians(45.0f);
+			angleMax = glm::radians(135.0f);
+		}
+		else if (key == GLFW_KEY_A && action == GLFW_RELEASE) {
+			angleMin = glm::radians(135.0f);
+			angleMax = glm::radians(-135.0f);
+		}
+		else if (key == GLFW_KEY_A && action == GLFW_RELEASE) {
+			angleMin = glm::radians(-135.0f);
+			angleMax = glm::radians(-45.0f);
+		}
+		else {
+			return;
+		}
+
+		int newSelectedModelIndex = selectedModelIndex;
+		std::optional<float> minDistance = std::nullopt;
+
+		glm::vec3 selectedModelPosition = modelInfos[selectedModelIndex].position;
+
+		for (int i = 1; i < modelInfos.size(); i++) {
+			ModelInfo model = modelInfos[i];
+
+			float angle = atan2(model.position.z - selectedModelPosition.z, model.position.x - selectedModelPosition.x);
+
+			bool isInCorrectDirection;
+			if (angleMin <= angleMax)
+				isInCorrectDirection = angleMin <= angle && angle <= angleMax;
+			else
+				isInCorrectDirection = (angleMin <= angle && angle <= glm::radians(180.0f)) || (glm::radians(-180.0f) <= angle && angle <= angleMax);
+
+			if (i != selectedModelIndex && isInCorrectDirection) {
+				std::cerr << "hit " << i << std::endl;
+				float squaredDistance = (model.position.x - selectedModelPosition.x) * (model.position.x - selectedModelPosition.x) + (model.position.z - selectedModelPosition.z) * (model.position.z - selectedModelPosition.z);
+				if (!minDistance.has_value() || squaredDistance < minDistance) {
+					minDistance = squaredDistance;
+					newSelectedModelIndex = i;
+				}
+			}
+		}
+
+		that->selectModel(newSelectedModelIndex);
+	}
 	
 	// Here you load and setup all your Vulkan objects
 	void localInit() {
@@ -125,7 +184,7 @@ class MyProject : public BaseProject {
 				  });
 
 		DSLobj.init(this, {
-					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT},
+					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS},
 			});
 
 		// Pipelines [Shader couples]
@@ -142,15 +201,15 @@ class MyProject : public BaseProject {
 		}
 
 		modelInfos[0].position = glm::vec3(0.0f, 0.0f, 0.0f);
-		modelInfos[1].position = glm::vec3(1.0f, 1.0f, 0.0f);
-		modelInfos[2].position = glm::vec3(-1.0f, 1.0f, 0.0f);
-		modelInfos[3].position = glm::vec3(-2.0f, 1.0f, 0.0f);
-		modelInfos[4].position = glm::vec3(2.0f, 1.0f, 0.0f);
-		modelInfos[5].position = glm::vec3(-3.0f, 1.0f, 0.0f);
-		modelInfos[6].position = glm::vec3(3.0f, 1.0f, 0.0f);
+		modelInfos[1].position = glm::vec3(-3.0f, 1.0f, 0.0f);
+		modelInfos[2].position = glm::vec3(-2.0f, 1.0f, 0.0f);
+		modelInfos[3].position = glm::vec3(-1.0f, 1.0f, 0.0f);
+		modelInfos[4].position = glm::vec3(0.0f, 1.0f, 0.0f);
+		modelInfos[5].position = glm::vec3(1.0f, 1.0f, 0.0f);
+		modelInfos[6].position = glm::vec3(2.0f, 1.0f, 0.0f);
 		modelInfos[7].position = glm::vec3(3.0f, 1.0f, 0.0f);
 
-		selectModel(1);
+		selectModel(4);
 
 
 		// T1.init(this, TEXTURE_PATH);
@@ -164,6 +223,9 @@ class MyProject : public BaseProject {
 					{0, UNIFORM, sizeof(globalUniformBufferObject), nullptr},
 					// {1, TEXTURE, 0, &T1}
 				});
+
+		glfwSetWindowUserPointer(window, this);
+		glfwSetKeyCallback(window, key_callback);
 	}
 
 	// Here you destroy all the objects you created!		
@@ -215,59 +277,52 @@ class MyProject : public BaseProject {
 		}
 	}
 
+	float pointLineRelativePos(glm::vec3 point, float m, glm::vec3 p0) {
+		return p0.z + (point.x - p0.x) * m - point.z;
+	}
+
+	glm::mat4 updatePiecesPositions(float deltaTime) {
+		return glm::mat4(1);
+	}
+
 	glm::mat4 computeNewViewMatrix(float deltaTime) {
-		static glm::mat4 viewMatrix = lookIn(glm::vec3(0.0f, 8.0f, 0.0f), glm::radians(0.0f), glm::radians(-90.0f), glm::radians(0.0f));
+		static glm::mat4 viewMatrix = lookIn(glm::vec3(0.0f, 8.0f, 0.0f), glm::radians(0.0f), glm::radians(-90.0f), glm::radians(0.0f)); // camera starts looking down
 
 		static float linearSpeed = 1.0f;
 		static float angularSpeed = glm::radians(30.0f);
 
 		glm::vec3 mov = glm::vec3(0, 0, 0);
-		glm::vec3 rot = glm::vec3(0, 0, 0);
+		// glm::vec3 rot = glm::vec3(0, 0, 0);
 
-		if (glfwGetKey(window, GLFW_KEY_A)) {
+		// camera movements controlls
+		if (glfwGetKey(window, GLFW_KEY_LEFT)) {
 			mov.x -= 1;
 		}
 
-		if (glfwGetKey(window, GLFW_KEY_D)) {
+		if (glfwGetKey(window, GLFW_KEY_RIGHT)) {
 			mov.x += 1;
 		}
 
-		if (glfwGetKey(window, GLFW_KEY_S)) {
+		if (glfwGetKey(window, GLFW_KEY_DOWN)) {
 			mov.y -= 1;
 		}
 
-		if (glfwGetKey(window, GLFW_KEY_W)) {
+		if (glfwGetKey(window, GLFW_KEY_UP)) {
 			mov.y += 1;
 		}
 
-		if (glfwGetKey(window, GLFW_KEY_E)) {
+		if (glfwGetKey(window, GLFW_KEY_Z)) {
 			mov.z -= 1;
 		}
 
-		if (glfwGetKey(window, GLFW_KEY_Q)) {
+		if (glfwGetKey(window, GLFW_KEY_X)) {
 			mov.z += 1;
 		}
 
-		if (glfwGetKey(window, GLFW_KEY_LEFT)) {
-			rot.y -= 1;
-		}
-
-		if (glfwGetKey(window, GLFW_KEY_RIGHT)) {
-			rot.y += 1;
-		}
-
-		if (glfwGetKey(window, GLFW_KEY_DOWN)) {
-			rot.x += 1;
-		}
-
-		if (glfwGetKey(window, GLFW_KEY_UP)) {
-			rot.x -= 1;
-		}
-
 		viewMatrix = glm::translate(glm::mat4(1.0), linearSpeed * deltaTime * (-mov))
-			* glm::rotate(glm::mat4(1.0), angularSpeed * deltaTime * rot.z, glm::vec3(0, 0, 1))
-			* glm::rotate(glm::mat4(1.0), angularSpeed * deltaTime * rot.y, glm::vec3(0, 1, 0))
-			* glm::rotate(glm::mat4(1.0), angularSpeed * deltaTime * rot.x, glm::vec3(1, 0, 0))
+			// * glm::rotate(glm::mat4(1.0), angularSpeed * deltaTime * rot.z, glm::vec3(0, 0, 1))
+			// * glm::rotate(glm::mat4(1.0), angularSpeed * deltaTime * rot.y, glm::vec3(0, 1, 0))
+			// * glm::rotate(glm::mat4(1.0), angularSpeed * deltaTime * rot.x, glm::vec3(1, 0, 0))
 			* viewMatrix;
 
 		return viewMatrix;
@@ -298,12 +353,12 @@ class MyProject : public BaseProject {
 			(currentTime - lastTime).count();
 		lastTime = currentTime;
 
-
-		globalUniformBufferObject gubo{};
-
 		void* data;
 
 		UniformBufferObject ubo{};
+
+		updatePiecesPositions(dt);
+
 		for (ModelInfo mi : modelInfos) {
 			
 			ubo.model = glm::scale(MakeWorldMatrixEuler(mi.position, mi.eulerRotation, mi.scale), glm::vec3(1.0, 1.0, 1.0));
@@ -323,7 +378,8 @@ class MyProject : public BaseProject {
 
 		}
 
-		gubo.view = computeNewViewMatrix(dt); //camera looking down at the start
+		globalUniformBufferObject gubo{};
+		gubo.view = computeNewViewMatrix(dt);
 		gubo.proj = glm::perspective(glm::radians(45.0f),
 			swapChainExtent.width / (float)swapChainExtent.height,
 			0.1f, 10.0f);
