@@ -4,7 +4,7 @@
 
 const std::vector<std::string> MODEL_PATHS = { 
 	"models/tray.obj",
-	"models/piece1.obj",
+	"models/piece1.obj", 
 	"models/piece2.obj",
 	"models/piece3.obj",
 	"models/piece4.obj",
@@ -12,7 +12,7 @@ const std::vector<std::string> MODEL_PATHS = {
 	"models/piece6.obj",
 	"models/piece7.obj"
 };
-// const std::string TEXTURE_PATH = "textures/viking_room.png";
+const std::string TEXTURE_PATH = "textures/wood_texture.jpg";
 
 // The uniform buffer object used in this example
 struct globalUniformBufferObject {
@@ -90,7 +90,7 @@ class MyProject : public BaseProject {
 
 	// Models, textures and Descriptors (values assigned to the uniforms)
 	std::vector <ModelInfo> modelInfos = {};
-	// Texture T1;
+	Texture T1;
 	DescriptorSet globalDS;
 
 	void selectModel(int index) {
@@ -180,11 +180,12 @@ class MyProject : public BaseProject {
 					// second element : the time of element (buffer or texture)
 					// third  element : the pipeline stage where it will be used
 					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT},
-					// {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
+					{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
 				  });
 
 		DSLobj.init(this, {
-					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS},
+					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT},
+					{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_ALL_GRAPHICS}
 			});
 
 		// Pipelines [Shader couples]
@@ -196,7 +197,9 @@ class MyProject : public BaseProject {
 		for(std::string path : MODEL_PATHS)
 		{
 			ModelInfo mi = ModelInfo(this, path);
-			mi.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr} });
+			T1.init(this, TEXTURE_PATH);
+			mi.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
+										{1, TEXTURE, 0, &T1} });
 			modelInfos.push_back(mi);
 		}
 
@@ -221,7 +224,7 @@ class MyProject : public BaseProject {
 		// third  element : only for UNIFORMs, the size of the corresponding C++ object
 		// fourth element : only for TEXTUREs, the pointer to the corresponding texture object
 					{0, UNIFORM, sizeof(globalUniformBufferObject), nullptr},
-					// {1, TEXTURE, 0, &T1}
+					{1, TEXTURE, 0, &T1}
 				});
 
 		glfwSetWindowUserPointer(window, this);
@@ -230,6 +233,7 @@ class MyProject : public BaseProject {
 
 	// Here you destroy all the objects you created!		
 	void localCleanup() {
+		T1.cleanup();
 		globalDS.cleanup();
 		// T1.cleanup();
 		for (ModelInfo mi : modelInfos)
