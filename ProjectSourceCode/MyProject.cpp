@@ -75,6 +75,9 @@ glm::mat4 lookIn(glm::vec3 cameraPos, float alpha, float beta, float rho) {
 
 // MAIN ! 
 class MyProject : public BaseProject {
+	private:
+	int	selectedModelIndex;
+
 	protected:
 	// Here you list all the Vulkan objects you need:
 	
@@ -89,6 +92,11 @@ class MyProject : public BaseProject {
 	std::vector <ModelInfo> modelInfos = {};
 	Texture T1;
 	DescriptorSet globalDS;
+
+	void selectModel(int index) {
+		modelInfos[index].selected = true;
+		selectedModelIndex = index;
+	}
 	
 	// Here you set the main application parameters
 	void setWindowParameters() {
@@ -145,7 +153,7 @@ class MyProject : public BaseProject {
 		modelInfos[6].position = glm::vec3(3.0f, 1.0f, 0.0f);
 		modelInfos[7].position = glm::vec3(3.0f, 1.0f, 0.0f);
 
-		modelInfos[1].selected = true;
+		selectModel(1);
 
 
 		// T1.init(this, TEXTURE_PATH);
