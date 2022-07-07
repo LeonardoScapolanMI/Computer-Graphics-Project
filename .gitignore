@@ -399,3 +399,4 @@ FodyWeavers.xsd
 
 ProjectSourceCode/*.sln
 ProjectSourceCode/*.vcxproj*
+ProjectSourceCode/shaders/compile.bat

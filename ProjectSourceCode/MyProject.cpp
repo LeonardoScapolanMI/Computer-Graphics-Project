@@ -22,6 +22,8 @@ struct globalUniformBufferObject {
 
 struct UniformBufferObject {
 	alignas(16) glm::mat4 model;
+	alignas(16) glm::vec4 color;
+	alignas(4) float selected;
 };
 
 // class containing the informations for each model
@@ -32,10 +34,21 @@ private:
 
 public:
 	DescriptorSet DS;
+	bool selected;
+	glm::vec3 position;
+	glm::vec3 eulerRotation;
+	glm::vec3 scale;
+	glm::vec4 color;
 
 	ModelInfo(BaseProject* pj, std::string path) {
 		this->path = path;
 		model.init(pj, path);
+
+		position = glm::vec3(0.0f, 1.0f, -1.0f);
+		eulerRotation = glm::vec3(0.0f, 0.0f, 0.0f);
+		scale = glm::vec3(1.0f, 1.0f, 1.0f);
+		color = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+		selected = false;
 	}
 
 	const Model& getModel() {
@@ -119,6 +132,19 @@ class MyProject : public BaseProject {
 			mi.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr} });
 			modelInfos.push_back(mi);
 		}
+
+		modelInfos[0].position = glm::vec3(0.0f, 0.0f, 0.0f);
+		modelInfos[1].position = glm::vec3(1.0f, 1.0f, 0.0f);
+		modelInfos[2].position = glm::vec3(-1.0f, 1.0f, 0.0f);
+		modelInfos[3].position = glm::vec3(-2.0f, 1.0f, 0.0f);
+		modelInfos[4].position = glm::vec3(2.0f, 1.0f, 0.0f);
+		modelInfos[5].position = glm::vec3(-3.0f, 1.0f, 0.0f);
+		modelInfos[6].position = glm::vec3(3.0f, 1.0f, 0.0f);
+		modelInfos[7].position = glm::vec3(3.0f, 1.0f, 0.0f);
+
+		modelInfos[1].selected = true;
+
+
 		// T1.init(this, TEXTURE_PATH);
 		globalDS.init(this, &DSLglobal, {
 		// the second parameter, is a pointer to the Uniform Set Layout of this set
@@ -250,9 +276,9 @@ class MyProject : public BaseProject {
 		return out;
 	}
 
-	std::vector<glm::vec3> ObjsPos;
-	std::vector<glm::vec3> ObjsEuler;
-	std::vector<glm::vec3> ObjsSize;
+	// std::vector<glm::vec3> ObjsPos;
+	// std::vector<glm::vec3> ObjsEuler;
+	// std::vector<glm::vec3> ObjsSize;
 
 	// Here is where you update the uniforms.
 	// Very likely this will be where you will be writing the logic of your application.
@@ -267,50 +293,14 @@ class MyProject : public BaseProject {
 
 		globalUniformBufferObject gubo{};
 
-		ObjsPos.resize(8);
-		ObjsEuler.resize(8);
-		ObjsSize.resize(8);
-
-		ObjsPos[0] = glm::vec3(0.0f, 1.0f, -1.0f);
-		ObjsEuler[0] = glm::vec3(0.0f, 0.0f, 0.0f);
-		ObjsSize[0] = glm::vec3(1.0f, 1.0f, 1.0f);
-
-		ObjsPos[1] = glm::vec3(1.0f, 1.0f, 0.0f);
-		ObjsEuler[1] = glm::vec3(0.0f, 0.0f, 0.0f);
-		ObjsSize[1] = glm::vec3(1.0f, 1.0f, 1.0f);
-
-		ObjsPos[2] = glm::vec3(-1.0f, 1.0f, 0.0f);
-		ObjsEuler[2] = glm::vec3(0.0f, 0.0f, 0.0f);
-		ObjsSize[2] = glm::vec3(1.0f, 1.0f, 1.0f);
-
-		ObjsPos[3] = glm::vec3(-2.0f, 1.0f, 0.0f);
-		ObjsEuler[3] = glm::vec3(0.0f, 0.0f, 0.0f);
-		ObjsSize[3] = glm::vec3(1.0f, 1.0f, 1.0f);
-
-		ObjsPos[4] = glm::vec3(2.0f, 1.0f, 0.0f);
-		ObjsEuler[4] = glm::vec3(0.0f, 0.0f, 0.0f);
-		ObjsSize[4] = glm::vec3(1.0f, 1.0f, 1.0f);
-
-		ObjsPos[5] = glm::vec3(-3.0f, 1.0f, 0.0f);
-		ObjsEuler[5] = glm::vec3(0.0f, 0.0f, 0.0f);
-		ObjsSize[5] = glm::vec3(1.0f, 1.0f, 1.0f);
-
-		ObjsPos[6] = glm::vec3(3.0f, 1.0f, 0.0f);
-		ObjsEuler[6] = glm::vec3(0.0f, 0.0f, 0.0f);
-		ObjsSize[6] = glm::vec3(1.0f, 1.0f, 1.0f);
-
-		ObjsPos[7] = glm::vec3(3.0f, 1.0f, 0.0f);
-		ObjsEuler[7] = glm::vec3(0.0f, 0.0f, 0.0f);
-		ObjsSize[7] = glm::vec3(1.0f, 1.0f, 1.0f);
-
-		int i = 0;
 		void* data;
 
+		UniformBufferObject ubo{};
 		for (ModelInfo mi : modelInfos) {
-			UniformBufferObject ubo{};
-
-			ubo.model = glm::scale(MakeWorldMatrixEuler(ObjsPos[i], ObjsEuler[i], ObjsSize[i]), glm::vec3(1.0, 1.0, 1.0));
-			i++;
+			
+			ubo.model = glm::scale(MakeWorldMatrixEuler(mi.position, mi.eulerRotation, mi.scale), glm::vec3(1.0, 1.0, 1.0));
+			ubo.color = mi.color;
+			ubo.selected = mi.selected ? 1.0f : 0.0f;
 
 			// Here is where you actually update your uniforms
 
