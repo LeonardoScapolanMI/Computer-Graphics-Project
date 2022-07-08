@@ -117,11 +117,6 @@ class MyProject : public BaseProject {
 
 
 
-	//FUNCTIONS DECLARATIONS
-
-
-
-
 	//DEFAULT FUNCTIONS
 	
 	// Here you set the main application parameters
