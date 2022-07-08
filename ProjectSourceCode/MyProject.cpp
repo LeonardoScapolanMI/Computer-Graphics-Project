@@ -389,7 +389,7 @@ class MyProject : public BaseProject {
 		static glm::mat4 viewMatrix = lookIn(glm::vec3(0.0f, 8.0f, 0.0f), glm::radians(0.0f), glm::radians(-90.0f), glm::radians(0.0f)); // camera starts looking down
 
 		static float linearSpeed = 1.0f;
-		static float angularSpeed = glm::radians(30.0f);
+		// static float angularSpeed = 20;
 
 		glm::vec3 mov = glm::vec3(0, 0, 0);
 		// glm::vec3 rot = glm::vec3(0, 0, 0);
