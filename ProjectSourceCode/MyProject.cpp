@@ -300,6 +300,7 @@ class MyProject : public BaseProject {
 	//FUNCTION DEFINITION
 	static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 	{
+		static std::vector<int> modelToSkipIndexes = {};
 
 		MyProject* that = static_cast<MyProject*>(glfwGetWindowUserPointer(window));
 
@@ -355,8 +356,8 @@ class MyProject : public BaseProject {
 			else
 				isInCorrectDirection = (angleMin <= angle && angle <= glm::radians(180.0f)) || (glm::radians(-180.0f) <= angle && angle <= angleMax);
 
-			if (i != selectedModelIndex && isInCorrectDirection) {
-				std::cerr << "hit " << i << std::endl;
+			if (i != selectedModelIndex && isInCorrectDirection && std::count(modelToSkipIndexes.begin(), modelToSkipIndexes.end(), i)==0) {
+				// std::cerr << "hit " << i << std::endl;
 				float squaredDistance = (model.position.x - selectedModelPosition.x) * (model.position.x - selectedModelPosition.x) + (model.position.z - selectedModelPosition.z) * (model.position.z - selectedModelPosition.z);
 				if (!minDistance.has_value() || squaredDistance < minDistance) {
 					minDistance = squaredDistance;
@@ -364,6 +365,15 @@ class MyProject : public BaseProject {
 				}
 			}
 		}
+
+		if (minDistance.value_or(-1) == 0) {
+			modelToSkipIndexes.push_back(selectedModelIndex);
+		}
+		else {
+			modelToSkipIndexes.clear();
+		}
+
+		std::cerr << modelToSkipIndexes.size() << std::endl;
 
 		that->selectModel(newSelectedModelIndex);
 	}
