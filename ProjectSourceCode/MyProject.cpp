@@ -13,6 +13,7 @@ const std::vector<std::string> MODEL_PATHS = {
 	"models/piece7.obj"
 };
 const std::string TEXTURE_PATH = "textures/wood_texture.jpg";
+const std::string PIECES_TEXTURE_PATH = "textures/faded-gray-wooden-textured-background.jpg";
 
 
 
@@ -159,7 +160,7 @@ class MyProject : public BaseProject {
 		for(std::string path : MODEL_PATHS)
 		{
 			ModelInfo mi = ModelInfo(this, path);
-			T1.init(this, TEXTURE_PATH);
+			T1.init(this, PIECES_TEXTURE_PATH);
 			mi.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
 										{1, TEXTURE, 0, &T1} });
 			modelInfos.push_back(mi);
@@ -173,6 +174,15 @@ class MyProject : public BaseProject {
 		modelInfos[5].position = glm::vec3(1.0f, 1.0f, 0.0f);
 		modelInfos[6].position = glm::vec3(2.0f, 1.0f, 0.0f);
 		modelInfos[7].position = glm::vec3(3.0f, 1.0f, 0.0f);
+
+		modelInfos[0].color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		modelInfos[1].color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+		modelInfos[2].color = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
+		modelInfos[3].color = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
+		modelInfos[4].color = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+		modelInfos[5].color = glm::vec4(1.0f, 0.0f, 1.0f, 1.0f);
+		modelInfos[6].color = glm::vec4(0.0f, 1.0f, 1.0f, 1.0f);
+		modelInfos[7].color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
 		selectModel(4);
 
