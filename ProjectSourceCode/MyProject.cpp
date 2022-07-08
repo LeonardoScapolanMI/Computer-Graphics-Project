@@ -14,7 +14,38 @@ const std::vector<std::string> MODEL_PATHS = {
 };
 const std::string TEXTURE_PATH = "textures/wood_texture.jpg";
 
-// The uniform buffer object used in this example
+
+
+// function to make a look in view matrix starting from the camera position and it's rotation (angles in radiants)
+// cameraPos: coordinates of the camera
+// alpha: angle of the camera with respect to the y axis (horizontal looking direction, yaw)
+// beta: angle of the camera with respect to the x axis (vertical elevation, pitch)
+// rho: angle of the camera with respect to the z axis (inclination, roll)
+glm::mat4 lookIn(glm::vec3 cameraPos, float alpha, float beta, float rho) {
+	return glm::rotate(glm::mat4(1.0), -rho, glm::vec3(0, 0, 1))
+		* glm::rotate(glm::mat4(1.0), -beta, glm::vec3(1, 0, 0))
+		* glm::rotate(glm::mat4(1.0), -alpha, glm::vec3(0, 1, 0))
+		* glm::translate(glm::mat4(1.0), -cameraPos);
+}
+
+// function to make a world matrix starting from the object position, rotation (angles in radiants) and scale
+// pos: coordinates of the object
+// YPR: yaw(x), pitch(y) and roll(z) of the object
+// size: scaling factors for the object
+glm::mat4 MakeWorldMatrixEuler(glm::vec3 pos, glm::vec3 YPR, glm::vec3 size) {
+	glm::mat4 out;
+	glm::mat4 Pos = glm::translate(glm::mat4(1.0), glm::vec3(pos.x, pos.y, pos.z));
+	glm::mat4 RotYaw = glm::rotate(glm::mat4(1.0), glm::radians(YPR.x), glm::vec3(0, 1, 0));
+	glm::mat4 RotPitch = glm::rotate(glm::mat4(1.0), glm::radians(YPR.y), glm::vec3(1, 0, 0));
+	glm::mat4 RotRoll = glm::rotate(glm::mat4(1.0), glm::radians(YPR.z), glm::vec3(0, 0, 1));
+	glm::mat4 Sca = glm::scale(glm::mat4(1.0), glm::vec3(size.x, size.y, size.z));
+	out = Pos * RotYaw * RotPitch * RotRoll * Sca;
+	return out;
+}
+
+
+
+// The uniform buffer object that will be fed to the pipline
 struct globalUniformBufferObject {
 	alignas(16) glm::mat4 view;
 	alignas(16) glm::mat4 proj;
@@ -25,6 +56,8 @@ struct UniformBufferObject {
 	alignas(16) glm::vec4 color;
 	alignas(4) float selected;
 };
+
+
 
 // class containing the informations for each model
 class ModelInfo {
@@ -61,19 +94,7 @@ public:
 	}
 };
 
-// function to make a look in view matrix starting from the camera position and it's rotation (angles in radiants)
-// cameraPos: coordinates of the camera
-// alpha: angle of the camera with respect to the y axis (horizontal looking direction, yaw)
-// beta: angle of the camera with respect to the x axis (vertical elevation, pitch)
-// rho: angle of the camera with respect to the z axis (inclination, roll)
-glm::mat4 lookIn(glm::vec3 cameraPos, float alpha, float beta, float rho) {
-	return glm::rotate(glm::mat4(1.0), -rho, glm::vec3(0, 0, 1))
-		* glm::rotate(glm::mat4(1.0), -beta, glm::vec3(1, 0, 0))
-		* glm::rotate(glm::mat4(1.0), -alpha, glm::vec3(0, 1, 0))
-		* glm::translate(glm::mat4(1.0), -cameraPos);
-}
-
-// MAIN ! 
+// MAIN CLASS
 class MyProject : public BaseProject {
 	private:
 	int	selectedModelIndex = 0;
@@ -93,12 +114,16 @@ class MyProject : public BaseProject {
 	Texture T1;
 	DescriptorSet globalDS;
 
-	void selectModel(int index) {
-		modelInfos[selectedModelIndex].selected = false;
-		modelInfos[index].selected = true;
-		// std::cerr << index;
-		selectedModelIndex = index;
-	}
+
+
+	//FUNCTIONS DECLARATIONS
+	static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+	void selectModel(int index);
+	glm::mat4 computeNewViewMatrix(float deltaTime);
+
+
+
+	//DEFAULT FUNCTIONS
 	
 	// Here you set the main application parameters
 	void setWindowParameters() {
@@ -114,63 +139,6 @@ class MyProject : public BaseProject {
 		setsInPool = 1 + MODEL_PATHS.size();
 	}
 
-	static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
-	{
-		MyProject* that = static_cast<MyProject*>(glfwGetWindowUserPointer(window));
-		int selectedModelIndex = that->selectedModelIndex;
-		std::vector<ModelInfo> modelInfos = that->modelInfos;
-
-		float angleMin;
-		float angleMax;
-		if (key == GLFW_KEY_D && action == GLFW_RELEASE) {
-			angleMin = glm::radians(-45.0f);
-			angleMax = glm::radians(45.0f);
-		}
-		else if (key == GLFW_KEY_W && action == GLFW_RELEASE) {
-			angleMin = glm::radians(45.0f);
-			angleMax = glm::radians(135.0f);
-		}
-		else if (key == GLFW_KEY_A && action == GLFW_RELEASE) {
-			angleMin = glm::radians(135.0f);
-			angleMax = glm::radians(-135.0f);
-		}
-		else if (key == GLFW_KEY_A && action == GLFW_RELEASE) {
-			angleMin = glm::radians(-135.0f);
-			angleMax = glm::radians(-45.0f);
-		}
-		else {
-			return;
-		}
-
-		int newSelectedModelIndex = selectedModelIndex;
-		std::optional<float> minDistance = std::nullopt;
-
-		glm::vec3 selectedModelPosition = modelInfos[selectedModelIndex].position;
-
-		for (int i = 1; i < modelInfos.size(); i++) {
-			ModelInfo model = modelInfos[i];
-
-			float angle = atan2(model.position.z - selectedModelPosition.z, model.position.x - selectedModelPosition.x);
-
-			bool isInCorrectDirection;
-			if (angleMin <= angleMax)
-				isInCorrectDirection = angleMin <= angle && angle <= angleMax;
-			else
-				isInCorrectDirection = (angleMin <= angle && angle <= glm::radians(180.0f)) || (glm::radians(-180.0f) <= angle && angle <= angleMax);
-
-			if (i != selectedModelIndex && isInCorrectDirection) {
-				std::cerr << "hit " << i << std::endl;
-				float squaredDistance = (model.position.x - selectedModelPosition.x) * (model.position.x - selectedModelPosition.x) + (model.position.z - selectedModelPosition.z) * (model.position.z - selectedModelPosition.z);
-				if (!minDistance.has_value() || squaredDistance < minDistance) {
-					minDistance = squaredDistance;
-					newSelectedModelIndex = i;
-				}
-			}
-		}
-
-		that->selectModel(newSelectedModelIndex);
-	}
-	
 	// Here you load and setup all your Vulkan objects
 	void localInit() {
 		// Descriptor Layouts [what will be passed to the shaders]
@@ -281,12 +249,121 @@ class MyProject : public BaseProject {
 		}
 	}
 
-	float pointLineRelativePos(glm::vec3 point, float m, glm::vec3 p0) {
-		return p0.z + (point.x - p0.x) * m - point.z;
+	// std::vector<glm::vec3> ObjsPos;
+	// std::vector<glm::vec3> ObjsEuler;
+	// std::vector<glm::vec3> ObjsSize;
+
+	// Here is where you update the uniforms.
+	// Very likely this will be where you will be writing the logic of your application.
+	void updateUniformBuffer(uint32_t currentImage) {
+		static auto lastTime = std::chrono::high_resolution_clock::now();
+
+		auto currentTime = std::chrono::high_resolution_clock::now();
+		float dt = std::chrono::duration<float, std::chrono::seconds::period>
+			(currentTime - lastTime).count();
+		lastTime = currentTime;
+
+		void* data;
+
+		UniformBufferObject ubo{};
+
+		for (ModelInfo mi : modelInfos) {
+			
+			ubo.model = glm::scale(MakeWorldMatrixEuler(mi.position, mi.eulerRotation, mi.scale), glm::vec3(1.0, 1.0, 1.0));
+			ubo.color = mi.color;
+			ubo.selected = mi.selected ? 1.0f : 0.0f;
+
+			// Here is where you actually update your uniforms
+
+			//for (ModelInfo mi : modelInfos)
+			//{
+
+			vkMapMemory(device, mi.DS.uniformBuffersMemory[0][currentImage], 0,
+				sizeof(ubo), 0, &data);
+			memcpy(data, &ubo, sizeof(ubo));
+			vkUnmapMemory(device, mi.DS.uniformBuffersMemory[0][currentImage]);
+			//}
+
+		}
+
+		globalUniformBufferObject gubo{};
+		gubo.view = computeNewViewMatrix(dt);
+		gubo.proj = glm::perspective(glm::radians(45.0f),
+			swapChainExtent.width / (float)swapChainExtent.height,
+			0.1f, 10.0f);
+		gubo.proj[1][1] *= -1;
+		
+		vkMapMemory(device, globalDS.uniformBuffersMemory[0][currentImage], 0,
+			sizeof(gubo), 0, &data);
+		memcpy(data, &gubo, sizeof(gubo));
+		vkUnmapMemory(device, globalDS.uniformBuffersMemory[0][currentImage]);
 	}
 
-	glm::mat4 updatePiecesPositions(float deltaTime) {
-		return glm::mat4(1);
+
+
+	//FUNCTION DEFINITION
+	static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+	{
+		MyProject* that = static_cast<MyProject*>(glfwGetWindowUserPointer(window));
+		int selectedModelIndex = that->selectedModelIndex;
+		std::vector<ModelInfo> modelInfos = that->modelInfos;
+
+		float angleMin;
+		float angleMax;
+		if (key == GLFW_KEY_D && action == GLFW_RELEASE) {
+			angleMin = glm::radians(-45.0f);
+			angleMax = glm::radians(45.0f);
+		}
+		else if (key == GLFW_KEY_W && action == GLFW_RELEASE) {
+			angleMin = glm::radians(45.0f);
+			angleMax = glm::radians(135.0f);
+		}
+		else if (key == GLFW_KEY_A && action == GLFW_RELEASE) {
+			angleMin = glm::radians(135.0f);
+			angleMax = glm::radians(-135.0f);
+		}
+		else if (key == GLFW_KEY_A && action == GLFW_RELEASE) {
+			angleMin = glm::radians(-135.0f);
+			angleMax = glm::radians(-45.0f);
+		}
+		else {
+			return;
+		}
+
+		int newSelectedModelIndex = selectedModelIndex;
+		std::optional<float> minDistance = std::nullopt;
+
+		glm::vec3 selectedModelPosition = modelInfos[selectedModelIndex].position;
+
+		for (int i = 1; i < modelInfos.size(); i++) {
+			ModelInfo model = modelInfos[i];
+
+			float angle = atan2(model.position.z - selectedModelPosition.z, model.position.x - selectedModelPosition.x);
+
+			bool isInCorrectDirection;
+			if (angleMin <= angleMax)
+				isInCorrectDirection = angleMin <= angle && angle <= angleMax;
+			else
+				isInCorrectDirection = (angleMin <= angle && angle <= glm::radians(180.0f)) || (glm::radians(-180.0f) <= angle && angle <= angleMax);
+
+			if (i != selectedModelIndex && isInCorrectDirection) {
+				std::cerr << "hit " << i << std::endl;
+				float squaredDistance = (model.position.x - selectedModelPosition.x) * (model.position.x - selectedModelPosition.x) + (model.position.z - selectedModelPosition.z) * (model.position.z - selectedModelPosition.z);
+				if (!minDistance.has_value() || squaredDistance < minDistance) {
+					minDistance = squaredDistance;
+					newSelectedModelIndex = i;
+				}
+			}
+		}
+
+		that->selectModel(newSelectedModelIndex);
+	}
+
+	void selectModel(int index) {
+		modelInfos[selectedModelIndex].selected = false;
+		modelInfos[index].selected = true;
+		// std::cerr << index;
+		selectedModelIndex = index;
 	}
 
 	glm::mat4 computeNewViewMatrix(float deltaTime) {
@@ -330,69 +407,6 @@ class MyProject : public BaseProject {
 			* viewMatrix;
 
 		return viewMatrix;
-	}
-
-	glm::mat4 MakeWorldMatrixEuler(glm::vec3 pos, glm::vec3 YPR, glm::vec3 size) {
-		glm::mat4 out;
-		glm::mat4 Pos = glm::translate(glm::mat4(1.0), glm::vec3(pos.x, pos.y, pos.z));
-		glm::mat4 RotYaw = glm::rotate(glm::mat4(1.0), glm::radians(YPR.x), glm::vec3(0, 1, 0));
-		glm::mat4 RotPitch = glm::rotate(glm::mat4(1.0), glm::radians(YPR.y), glm::vec3(1, 0, 0));
-		glm::mat4 RotRoll = glm::rotate(glm::mat4(1.0), glm::radians(YPR.z), glm::vec3(0, 0, 1));
-		glm::mat4 Sca = glm::scale(glm::mat4(1.0), glm::vec3(size.x, size.y, size.z));
-		out = Pos * RotYaw * RotPitch * RotRoll * Sca;
-		return out;
-	}
-
-	// std::vector<glm::vec3> ObjsPos;
-	// std::vector<glm::vec3> ObjsEuler;
-	// std::vector<glm::vec3> ObjsSize;
-
-	// Here is where you update the uniforms.
-	// Very likely this will be where you will be writing the logic of your application.
-	void updateUniformBuffer(uint32_t currentImage) {
-		static auto lastTime = std::chrono::high_resolution_clock::now();
-
-		auto currentTime = std::chrono::high_resolution_clock::now();
-		float dt = std::chrono::duration<float, std::chrono::seconds::period>
-			(currentTime - lastTime).count();
-		lastTime = currentTime;
-
-		void* data;
-
-		UniformBufferObject ubo{};
-
-		updatePiecesPositions(dt);
-
-		for (ModelInfo mi : modelInfos) {
-			
-			ubo.model = glm::scale(MakeWorldMatrixEuler(mi.position, mi.eulerRotation, mi.scale), glm::vec3(1.0, 1.0, 1.0));
-			ubo.color = mi.color;
-			ubo.selected = mi.selected ? 1.0f : 0.0f;
-
-			// Here is where you actually update your uniforms
-
-			//for (ModelInfo mi : modelInfos)
-			//{
-
-			vkMapMemory(device, mi.DS.uniformBuffersMemory[0][currentImage], 0,
-				sizeof(ubo), 0, &data);
-			memcpy(data, &ubo, sizeof(ubo));
-			vkUnmapMemory(device, mi.DS.uniformBuffersMemory[0][currentImage]);
-			//}
-
-		}
-
-		globalUniformBufferObject gubo{};
-		gubo.view = computeNewViewMatrix(dt);
-		gubo.proj = glm::perspective(glm::radians(45.0f),
-			swapChainExtent.width / (float)swapChainExtent.height,
-			0.1f, 10.0f);
-		gubo.proj[1][1] *= -1;
-		
-		vkMapMemory(device, globalDS.uniformBuffersMemory[0][currentImage], 0,
-			sizeof(gubo), 0, &data);
-		memcpy(data, &gubo, sizeof(gubo));
-		vkUnmapMemory(device, globalDS.uniformBuffersMemory[0][currentImage]);
 	}
 };
 
