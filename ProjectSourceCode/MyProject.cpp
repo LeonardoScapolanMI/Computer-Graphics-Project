@@ -98,6 +98,7 @@ public:
 class MyProject : public BaseProject {
 	private:
 	int	selectedModelIndex = 0;
+	bool selectionMode = true;
 
 	protected:
 	// Here you list all the Vulkan objects you need:
@@ -117,9 +118,7 @@ class MyProject : public BaseProject {
 
 
 	//FUNCTIONS DECLARATIONS
-	static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
-	void selectModel(int index);
-	glm::mat4 computeNewViewMatrix(float deltaTime);
+
 
 
 
@@ -152,8 +151,8 @@ class MyProject : public BaseProject {
 				  });
 
 		DSLobj.init(this, {
-					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT},
-					{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_ALL_GRAPHICS}
+					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS},
+					{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
 			});
 
 		// Pipelines [Shader couples]
