@@ -316,7 +316,7 @@ class MyProject : public BaseProject {
 			angleMin = glm::radians(-45.0f);
 			angleMax = glm::radians(45.0f);
 		}
-		else if (key == GLFW_KEY_W && action == GLFW_RELEASE) {
+		else if (key == GLFW_KEY_S && action == GLFW_RELEASE) {
 			angleMin = glm::radians(45.0f);
 			angleMax = glm::radians(135.0f);
 		}
@@ -324,7 +324,7 @@ class MyProject : public BaseProject {
 			angleMin = glm::radians(135.0f);
 			angleMax = glm::radians(-135.0f);
 		}
-		else if (key == GLFW_KEY_A && action == GLFW_RELEASE) {
+		else if (key == GLFW_KEY_W && action == GLFW_RELEASE) {
 			angleMin = glm::radians(-135.0f);
 			angleMax = glm::radians(-45.0f);
 		}
