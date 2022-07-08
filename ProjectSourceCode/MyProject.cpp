@@ -263,6 +263,8 @@ class MyProject : public BaseProject {
 
 		UniformBufferObject ubo{};
 
+		if (!selectionMode) updateSelectedModelPosition(dt);
+
 		for (ModelInfo mi : modelInfos) {
 			
 			ubo.model = glm::scale(MakeWorldMatrixEuler(mi.position, mi.eulerRotation, mi.scale), glm::vec3(1.0, 1.0, 1.0));
@@ -302,9 +304,16 @@ class MyProject : public BaseProject {
 	//FUNCTION DEFINITION
 	static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 	{
+		static std::vector<int> modelToSkipIndexes = {};
+
 		MyProject* that = static_cast<MyProject*>(glfwGetWindowUserPointer(window));
-		int selectedModelIndex = that->selectedModelIndex;
-		std::vector<ModelInfo> modelInfos = that->modelInfos;
+
+		if (!that->selectionMode) {
+			if (key == GLFW_KEY_SPACE && action == GLFW_RELEASE) {
+				that->setSelectionMode(true);
+			}
+			return;
+		}
 
 		float angleMin;
 		float angleMax;
@@ -312,7 +321,7 @@ class MyProject : public BaseProject {
 			angleMin = glm::radians(-45.0f);
 			angleMax = glm::radians(45.0f);
 		}
-		else if (key == GLFW_KEY_W && action == GLFW_RELEASE) {
+		else if (key == GLFW_KEY_S && action == GLFW_RELEASE) {
 			angleMin = glm::radians(45.0f);
 			angleMax = glm::radians(135.0f);
 		}
@@ -320,13 +329,20 @@ class MyProject : public BaseProject {
 			angleMin = glm::radians(135.0f);
 			angleMax = glm::radians(-135.0f);
 		}
-		else if (key == GLFW_KEY_A && action == GLFW_RELEASE) {
+		else if (key == GLFW_KEY_W && action == GLFW_RELEASE) {
 			angleMin = glm::radians(-135.0f);
 			angleMax = glm::radians(-45.0f);
+		}
+		else if (key == GLFW_KEY_SPACE && action == GLFW_RELEASE) {
+			that->setSelectionMode(false);
+			return;
 		}
 		else {
 			return;
 		}
+
+		int selectedModelIndex = that->selectedModelIndex;
+		std::vector<ModelInfo> modelInfos = that->modelInfos;
 
 		int newSelectedModelIndex = selectedModelIndex;
 		std::optional<float> minDistance = std::nullopt;
@@ -344,8 +360,8 @@ class MyProject : public BaseProject {
 			else
 				isInCorrectDirection = (angleMin <= angle && angle <= glm::radians(180.0f)) || (glm::radians(-180.0f) <= angle && angle <= angleMax);
 
-			if (i != selectedModelIndex && isInCorrectDirection) {
-				std::cerr << "hit " << i << std::endl;
+			if (i != selectedModelIndex && isInCorrectDirection && std::count(modelToSkipIndexes.begin(), modelToSkipIndexes.end(), i)==0) {
+				// std::cerr << "hit " << i << std::endl;
 				float squaredDistance = (model.position.x - selectedModelPosition.x) * (model.position.x - selectedModelPosition.x) + (model.position.z - selectedModelPosition.z) * (model.position.z - selectedModelPosition.z);
 				if (!minDistance.has_value() || squaredDistance < minDistance) {
 					minDistance = squaredDistance;
@@ -353,6 +369,15 @@ class MyProject : public BaseProject {
 				}
 			}
 		}
+
+		if (minDistance.value_or(-1) == 0) {
+			modelToSkipIndexes.push_back(selectedModelIndex);
+		}
+		else {
+			modelToSkipIndexes.clear();
+		}
+
+		std::cerr << modelToSkipIndexes.size() << std::endl;
 
 		that->selectModel(newSelectedModelIndex);
 	}
@@ -364,11 +389,21 @@ class MyProject : public BaseProject {
 		selectedModelIndex = index;
 	}
 
+	void setSelectionMode(bool isSelectionMode) {
+		selectionMode = isSelectionMode;
+		if (selectionMode) {
+			modelInfos[selectedModelIndex].position.y -= 2;
+		}
+		else {
+			modelInfos[selectedModelIndex].position.y += 2;
+		}
+	}
+
 	glm::mat4 computeNewViewMatrix(float deltaTime) {
 		static glm::mat4 viewMatrix = lookIn(glm::vec3(0.0f, 8.0f, 0.0f), glm::radians(0.0f), glm::radians(-90.0f), glm::radians(0.0f)); // camera starts looking down
 
 		static float linearSpeed = 1.0f;
-		static float angularSpeed = glm::radians(30.0f);
+		// static float angularSpeed = 20;
 
 		glm::vec3 mov = glm::vec3(0, 0, 0);
 		// glm::vec3 rot = glm::vec3(0, 0, 0);
@@ -405,6 +440,41 @@ class MyProject : public BaseProject {
 			* viewMatrix;
 
 		return viewMatrix;
+	}
+
+	void updateSelectedModelPosition(float deltaTime) {
+		static float linearSpeed = 1.0f;
+		static float angularSpeed = 50;
+
+		glm::vec3 mov = glm::vec3(0, 0, 0);
+		int rot = 0;
+
+		if (glfwGetKey(window, GLFW_KEY_A)) {
+			mov.x += 1;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_D)) {
+			mov.x -= 1;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_S)) {
+			mov.z -= 1;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_W)) {
+			mov.z += 1;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_E)) {
+			rot -= 1;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_Q)) {
+			rot += 1;
+		}
+
+		modelInfos[selectedModelIndex].position += linearSpeed * deltaTime * (-mov);
+		modelInfos[selectedModelIndex].eulerRotation.x += angularSpeed * deltaTime * rot;
 	}
 };
 
