@@ -17,7 +17,10 @@ layout(location = 0) out vec4 outColor;
 
 void main() {
 	vec3  diffColor = texture(texSampler, fragTexCoord).rgb;
-	if(ubo.selected > 0) diffColor = vec3(1.0f, 1.0f, 1.0f);
+	if(ubo.selected > 0){
+		const float whiteWeight = 0.2f;
+		diffColor = (diffColor + whiteWeight * vec3(1.0f, 1.0f, 1.0f)) / (1+whiteWeight);
+	}
 	const vec3  specColor = vec3(1.0f, 0.8f, 0.3f);
 	const float specPower = 150.0f;
 	const vec3  L = vec3(-0.4830f, 0.8365f, -0.2588f);
