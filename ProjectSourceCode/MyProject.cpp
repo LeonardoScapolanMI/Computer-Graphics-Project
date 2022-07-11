@@ -17,6 +17,32 @@ const std::string PIECES_TEXTURE_PATH = "textures/faded-gray-wooden-textured-bac
 
 
 
+const std::vector<Vertex> planeVertices = {
+	{
+		glm::vec3(-1, 0, -1),
+		glm::vec3(0, 1, 0),
+		glm::vec2(0, 0)
+	},
+	{
+		glm::vec3(1, 0, -1),
+		glm::vec3(0, 1, 0),
+		glm::vec2(1, 0)
+	},
+	{
+		glm::vec3(1, 0, 1),
+		glm::vec3(0, 1, 0),
+		glm::vec2(1, 1)
+	},
+	{
+		glm::vec3(-1, 0, 1),
+		glm::vec3(0, 1, 0),
+		glm::vec2(0, 1)
+	}
+};
+const std::vector<uint32_t> planeIndices = {0, 2, 1, 0, 3, 2};
+
+
+
 // function to make a look in view matrix starting from the camera position and it's rotation (angles in radiants)
 // cameraPos: coordinates of the camera
 // alpha: angle of the camera with respect to the y axis (horizontal looking direction, yaw)
@@ -87,6 +113,20 @@ public:
 		selected = false;
 	}
 
+	ModelInfo(BaseProject* pj, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) {
+		model.BP = pj;
+		model.vertices = vertices;
+		model.indices = indices;
+		model.createVertexBuffer();
+		model.createIndexBuffer();
+
+		position = glm::vec3(0.0f, 1.0f, -1.0f);
+		eulerRotation = glm::vec3(0.0f, 0.0f, 0.0f);
+		scale = glm::vec3(1.0f, 1.0f, 1.0f);
+		color = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+		selected = false;
+	}
+
 	const Model& getModel() {
 		return model;
 	}
@@ -140,9 +180,9 @@ class MyProject : public BaseProject {
 		initialBackgroundColor = {0.0f, 0.0f, 0.0f, 1.0f};
 		
 		// Descriptor pool sizes
-		uniformBlocksInPool = 1 + MODEL_PATHS.size();
+		uniformBlocksInPool = 1 + MODEL_PATHS.size() + 1;
 		texturesInPool = 1;
-		setsInPool = 1 + MODEL_PATHS.size();
+		setsInPool = 1 + MODEL_PATHS.size() + 1;
 	}
 
 	// Here you load and setup all your Vulkan objects
@@ -177,7 +217,22 @@ class MyProject : public BaseProject {
 			modelInfos.push_back(mi);
 		}
 
+		//background plane initialization
+		ModelInfo mi = ModelInfo(this, planeVertices, planeIndices);
+		T1.init(this, PIECES_TEXTURE_PATH);
+		mi.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
+									{1, TEXTURE, 0, &T1} });
+		mi.position = glm::vec3(0.0f, -1.0f, 0.0f);
+		mi.color = glm::vec4(0.5f, 0.2f, 1.0f, 1.0f);
+		mi.scale = glm::vec3(15.0f, 15.0f, 15.0f);
+		modelInfos.push_back(mi);
+
+
+		//container position and color initialization
 		modelInfos[0].position = glm::vec3(0.0f, 0.0f, 0.0f);
+		modelInfos[0].color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+
+		//pieces position and color initialization
 		modelInfos[1].position = glm::vec3(-3.0f, 1.0f, 0.0f);
 		modelInfos[2].position = glm::vec3(-2.0f, 1.0f, 0.0f);
 		modelInfos[3].position = glm::vec3(-1.0f, 1.0f, 0.0f);
@@ -186,7 +241,6 @@ class MyProject : public BaseProject {
 		modelInfos[6].position = glm::vec3(2.0f, 1.0f, 0.0f);
 		modelInfos[7].position = glm::vec3(3.0f, 1.0f, 0.0f);
 
-		modelInfos[0].color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 		modelInfos[1].color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
 		modelInfos[2].color = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
 		modelInfos[3].color = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
@@ -372,7 +426,7 @@ class MyProject : public BaseProject {
 
 		glm::vec3 selectedModelPosition = modelInfos[selectedModelIndex].position;
 
-		for (int i = 1; i < modelInfos.size(); i++) {
+		for (int i = 1; i <= 7; i++) {
 			ModelInfo model = modelInfos[i];
 
 			float angle = atan2(model.position.z - selectedModelPosition.z, model.position.x - selectedModelPosition.x);
