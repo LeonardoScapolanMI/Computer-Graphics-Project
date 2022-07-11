@@ -98,11 +98,20 @@ public:
 	}
 };
 
+enum class SelectionState {
+	SELECTION_MODE,
+	TRANSITION,
+	TRANSLATION_MODE
+};
+
 // MAIN CLASS
 class MyProject : public BaseProject {
 	private:
 	int	selectedModelIndex = 0;
-	bool selectionMode = true;
+	SelectionState selectionMode = SelectionState::SELECTION_MODE;
+	SelectionState nextSelectionMode = SelectionState::SELECTION_MODE;
+
+	float selectedModelTargetY = 1.0f;
 
 	protected:
 	// Here you list all the Vulkan objects you need:
@@ -196,6 +205,7 @@ class MyProject : public BaseProject {
 		modelInfos[7].color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
 		selectModel(4);
+		selectedModelTargetY = modelInfos[4].position.y;
 
 
 		// T1.init(this, TEXTURE_PATH);
@@ -283,7 +293,8 @@ class MyProject : public BaseProject {
 
 		UniformBufferObject ubo{};
 
-		if (!selectionMode) updateSelectedModelPosition(dt);
+		if (selectionMode == SelectionState::TRANSLATION_MODE) updateSelectedModelPosition(dt);
+		if (selectionMode == SelectionState::TRANSITION) selectedModelTransition(dt);
 
 		for (ModelInfo mi : modelInfos) {
 			
@@ -328,7 +339,9 @@ class MyProject : public BaseProject {
 
 		MyProject* that = static_cast<MyProject*>(glfwGetWindowUserPointer(window));
 
-		if (!that->selectionMode) {
+		if (that->selectionMode == SelectionState::TRANSITION) return;
+
+		if (that->selectionMode == SelectionState::TRANSLATION_MODE) {
 			if (key == GLFW_KEY_SPACE && action == GLFW_RELEASE) {
 				that->setSelectionMode(true);
 			}
@@ -410,12 +423,14 @@ class MyProject : public BaseProject {
 	}
 
 	void setSelectionMode(bool isSelectionMode) {
-		selectionMode = isSelectionMode;
-		if (selectionMode) {
-			modelInfos[selectedModelIndex].position.y -= 2;
+		selectionMode = SelectionState::TRANSITION;
+		if (isSelectionMode) {
+			selectedModelTargetY = modelInfos[selectedModelIndex].position.y - 2;
+			nextSelectionMode = SelectionState::SELECTION_MODE;
 		}
 		else {
-			modelInfos[selectedModelIndex].position.y += 2;
+			selectedModelTargetY = modelInfos[selectedModelIndex].position.y + 2;
+			nextSelectionMode = SelectionState::TRANSLATION_MODE;
 		}
 	}
 
@@ -495,6 +510,25 @@ class MyProject : public BaseProject {
 
 		modelInfos[selectedModelIndex].position += linearSpeed * deltaTime * (-mov);
 		modelInfos[selectedModelIndex].eulerRotation.x += angularSpeed * deltaTime * rot;
+	}
+
+	void selectedModelTransition(float deltaTime) {
+		static float linearSpeed = 4.0f;
+
+		if (selectedModelTargetY > modelInfos[selectedModelIndex].position.y) {
+			modelInfos[selectedModelIndex].position.y += linearSpeed * deltaTime;
+			if (modelInfos[selectedModelIndex].position.y >= selectedModelTargetY) {
+				modelInfos[selectedModelIndex].position.y = selectedModelTargetY;
+				selectionMode = nextSelectionMode;
+			}
+		}
+		else {
+			modelInfos[selectedModelIndex].position.y -= linearSpeed * deltaTime;
+			if (modelInfos[selectedModelIndex].position.y <= selectedModelTargetY) {
+				modelInfos[selectedModelIndex].position.y = selectedModelTargetY;
+				selectionMode = nextSelectionMode;
+			}
+		}
 	}
 };
 
