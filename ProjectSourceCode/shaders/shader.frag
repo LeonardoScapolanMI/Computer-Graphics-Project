@@ -1,6 +1,6 @@
 #version 450
 
-layout(binding = 1) uniform sampler2D texSampler;
+layout(set = 1, binding = 1) uniform sampler2D texSampler;
 
 layout(set = 0, binding = 0) uniform globalUniformBufferObject {
 	mat4 view;
