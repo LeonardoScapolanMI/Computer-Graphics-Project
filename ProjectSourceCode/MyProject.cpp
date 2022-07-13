@@ -184,7 +184,7 @@ class MyProject : public BaseProject {
 		// Descriptor pool sizes
 		uniformBlocksInPool = 1 + MODEL_PATHS.size() + 1;
 		texturesInPool = 2;
-		setsInPool = 1 + MODEL_PATHS.size();
+		setsInPool = 1 + MODEL_PATHS.size() + 1;
 	}
 
 	// Here you load and setup all your Vulkan objects
