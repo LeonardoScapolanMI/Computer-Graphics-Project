@@ -2,8 +2,8 @@
 
 #include "MyProject.hpp"
 
-const std::vector<std::string> MODEL_PATHS = { 
-	"models/tray.obj",
+const std::string TRAY_MODEL_PATH = "models/tray.obj";
+const std::vector<std::string> PIECES_MODEL_PATHS = { 
 	"models/piece1.obj", 
 	"models/piece2.obj",
 	"models/piece3.obj",
@@ -12,9 +12,9 @@ const std::vector<std::string> MODEL_PATHS = {
 	"models/piece6.obj",
 	"models/piece7.obj"
 };
-const std::string TEXTURE_PATH = "textures/wood_texture.jpg";
+
+const std::string TRAY_TEXTURE_PATH = "textures/texture-background.jpg";
 const std::string PIECES_TEXTURE_PATH = "textures/faded-gray-wooden-textured-background.jpg";
-const std::string CONTENT_TEXTURE_PATH = "textures/texture-background.jpg"; 
 
 
 
@@ -103,6 +103,9 @@ public:
 	glm::vec3 scale;
 	glm::vec4 color;
 
+	ModelInfo() {
+	}
+
 	ModelInfo(BaseProject* pj, std::string path) {
 		this->path = path;
 		model.init(pj, path);
@@ -132,6 +135,41 @@ public:
 		return model;
 	}
 
+	const void drawModel(Pipeline P, VkCommandBuffer commandBuffer, int currentImage){
+		VkBuffer vertexBuffers[] = { model.vertexBuffer };
+		// property .vertexBuffer of models, contains the VkBuffer handle to its vertex buffer
+		VkDeviceSize offsets[] = { 0 };
+		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+		// property .indexBuffer of models, contains the VkBuffer handle to its index buffer
+		vkCmdBindIndexBuffer(commandBuffer, model.indexBuffer, 0,
+			VK_INDEX_TYPE_UINT32);
+
+		// property .pipelineLayout of a pipeline contains its layout.
+		// property .descriptorSets of a descriptor set contains its elements.
+		vkCmdBindDescriptorSets(commandBuffer,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			P.pipelineLayout, 1, 1, &(DS.descriptorSets[currentImage]),
+			0, nullptr);
+
+		// property .indices.size() of models, contains the number of triangles * 3 of the mesh.
+		vkCmdDrawIndexed(commandBuffer,
+			static_cast<uint32_t>(model.indices.size()), 1, 0, 0, 0);
+	}
+
+	const void updateUBO(VkDevice device, uint32_t currentImage) {
+		void* data;
+		UniformBufferObject ubo;
+
+		ubo.model = glm::scale(MakeWorldMatrixEuler(position, eulerRotation, scale), glm::vec3(1.0, 1.0, 1.0));
+		ubo.color = color;
+		ubo.selected = selected ? 1.0f : 0.0f;
+
+		vkMapMemory(device, DS.uniformBuffersMemory[0][currentImage], 0,
+			sizeof(ubo), 0, &data);
+		memcpy(data, &ubo, sizeof(ubo));
+		vkUnmapMemory(device, DS.uniformBuffersMemory[0][currentImage]);
+	}
+
 	void cleanup() {
 		DS.cleanup();
 		model.cleanup();
@@ -147,7 +185,7 @@ enum class SelectionState {
 // MAIN CLASS
 class MyProject : public BaseProject {
 	private:
-	int	selectedModelIndex = 0;
+	int	selectedPieceIndex = 0;
 	SelectionState selectionMode = SelectionState::SELECTION_MODE;
 	SelectionState nextSelectionMode = SelectionState::SELECTION_MODE;
 
@@ -164,9 +202,12 @@ class MyProject : public BaseProject {
 	Pipeline P1;
 
 	// Models, textures and Descriptors (values assigned to the uniforms)
-	std::vector <ModelInfo> modelInfos = {};
-	Texture T1;
-	Texture T2;
+	ModelInfo trayModelInfo;
+	std::vector <ModelInfo> piecesModelInfo = {};
+	ModelInfo backgroundModelInfo;
+
+	Texture trayTexture;
+	Texture pieceTexture;
 	DescriptorSet globalDS;
 
 
@@ -182,9 +223,9 @@ class MyProject : public BaseProject {
 		initialBackgroundColor = {0.0f, 0.0f, 0.0f, 1.0f};
 		
 		// Descriptor pool sizes
-		uniformBlocksInPool = 1 + MODEL_PATHS.size() + 1;
+		uniformBlocksInPool = 1 + 1 + PIECES_MODEL_PATHS.size() + 1; //global + 1 per model (tray, pieces, background)
 		texturesInPool = 2;
-		setsInPool = 1 + MODEL_PATHS.size() + 1;
+		setsInPool = 1 + 1 + PIECES_MODEL_PATHS.size() + 1;
 	}
 
 	// Here you load and setup all your Vulkan objects
@@ -210,56 +251,53 @@ class MyProject : public BaseProject {
 		P1.init(this, "shaders/vert.spv", "shaders/frag.spv", { &DSLglobal, &DSLobj });
 
 		// Models, textures and Descriptors (values assigned to the uniforms)
-		for(std::string path : MODEL_PATHS)
+		trayModelInfo = ModelInfo(this, TRAY_MODEL_PATH);
+		trayTexture.init(this, TRAY_TEXTURE_PATH);
+		trayModelInfo.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
+								{1, TEXTURE, 0, &trayTexture} });
+
+		for (std::string path : PIECES_MODEL_PATHS)
 		{
 			ModelInfo mi = ModelInfo(this, path);
-			if (path.compare("models/tray.obj") == 0) {
-				T2.init(this, CONTENT_TEXTURE_PATH);
-				mi.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
-										{1, TEXTURE, 0, &T2} });
-			}
-			else {
-				T1.init(this, PIECES_TEXTURE_PATH);
-				mi.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
-										{1, TEXTURE, 0, &T1} });
-			}
-			modelInfos.push_back(mi);
+			pieceTexture.init(this, PIECES_TEXTURE_PATH);
+			mi.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
+									{1, TEXTURE, 0, &pieceTexture} });
+			piecesModelInfo.push_back(mi);
 		}
 
 		//background plane initialization
-		ModelInfo mi = ModelInfo(this, planeVertices, planeIndices);
-		T1.init(this, PIECES_TEXTURE_PATH);
-		mi.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
-									{1, TEXTURE, 0, &T1} });
-		mi.position = glm::vec3(0.0f, -1.0f, 0.0f);
-		mi.color = glm::vec4(0.5f, 0.2f, 1.0f, 1.0f);
-		mi.scale = glm::vec3(15.0f, 15.0f, 15.0f);
-		modelInfos.push_back(mi);
+		backgroundModelInfo = ModelInfo(this, planeVertices, planeIndices);
+		pieceTexture.init(this, PIECES_TEXTURE_PATH);
+		backgroundModelInfo.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
+									{1, TEXTURE, 0, &pieceTexture} });
+		backgroundModelInfo.position = glm::vec3(0.0f, -1.0f, 0.0f);
+		backgroundModelInfo.color = glm::vec4(0.5f, 0.2f, 1.0f, 1.0f);
+		backgroundModelInfo.scale = glm::vec3(15.0f, 15.0f, 15.0f);
 
 
 		//container position and color initialization
-		modelInfos[0].position = glm::vec3(0.0f, 0.0f, 0.0f);
-		modelInfos[0].color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		trayModelInfo.position = glm::vec3(0.0f, 0.0f, 0.0f);
+		trayModelInfo.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
 		//pieces position and color initialization
-		modelInfos[1].position = glm::vec3(-3.0f, 1.0f, 0.0f);
-		modelInfos[2].position = glm::vec3(-2.0f, 1.0f, 0.0f);
-		modelInfos[3].position = glm::vec3(-1.0f, 1.0f, 0.0f);
-		modelInfos[4].position = glm::vec3(0.0f, 1.0f, 0.0f);
-		modelInfos[5].position = glm::vec3(1.0f, 1.0f, 0.0f);
-		modelInfos[6].position = glm::vec3(2.0f, 1.0f, 0.0f);
-		modelInfos[7].position = glm::vec3(3.0f, 1.0f, 0.0f);
+		piecesModelInfo[0].position = glm::vec3(-3.0f, 1.0f, 0.0f);
+		piecesModelInfo[1].position = glm::vec3(-2.0f, 1.0f, 0.0f);
+		piecesModelInfo[2].position = glm::vec3(-1.0f, 1.0f, 0.0f);
+		piecesModelInfo[3].position = glm::vec3(0.0f, 1.0f, 0.0f);
+		piecesModelInfo[4].position = glm::vec3(1.0f, 1.0f, 0.0f);
+		piecesModelInfo[5].position = glm::vec3(2.0f, 1.0f, 0.0f);
+		piecesModelInfo[6].position = glm::vec3(3.0f, 1.0f, 0.0f);
 
-		modelInfos[1].color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
-		modelInfos[2].color = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
-		modelInfos[3].color = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
-		modelInfos[4].color = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
-		modelInfos[5].color = glm::vec4(1.0f, 0.0f, 1.0f, 1.0f);
-		modelInfos[6].color = glm::vec4(0.0f, 1.0f, 1.0f, 1.0f);
-		modelInfos[7].color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		piecesModelInfo[0].color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+		piecesModelInfo[1].color = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
+		piecesModelInfo[2].color = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
+		piecesModelInfo[3].color = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+		piecesModelInfo[4].color = glm::vec4(1.0f, 0.0f, 1.0f, 1.0f);
+		piecesModelInfo[5].color = glm::vec4(0.0f, 1.0f, 1.0f, 1.0f);
+		piecesModelInfo[6].color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
-		selectModel(4);
-		selectedModelTargetY = modelInfos[4].position.y;
+		selectPiece(3);
+		selectedModelTargetY = piecesModelInfo[3].position.y;
 
 
 		// T1.init(this, TEXTURE_PATH);
@@ -280,14 +318,17 @@ class MyProject : public BaseProject {
 
 	// Here you destroy all the objects you created!		
 	void localCleanup() {
-		T1.cleanup();
-		T2.cleanup();
+		trayTexture.cleanup();
+		pieceTexture.cleanup();
 		globalDS.cleanup();
-		// T1.cleanup();
-		for (ModelInfo mi : modelInfos)
+
+		trayModelInfo.cleanup();
+		for (ModelInfo mi : piecesModelInfo)
 		{
 			mi.cleanup(); //cleans both model and DS
 		}
+		backgroundModelInfo.cleanup();
+
 		P1.cleanup();
 		DSLglobal.cleanup();
 		DSLobj.cleanup();
@@ -305,28 +346,12 @@ class MyProject : public BaseProject {
 			P1.pipelineLayout, 0, 1, &globalDS.descriptorSets[currentImage],
 			0, nullptr);
 		
-		for (ModelInfo mi : modelInfos)
+		trayModelInfo.drawModel(P1, commandBuffer, currentImage);
+		for (ModelInfo mi : piecesModelInfo)
 		{
-			Model M = mi.getModel();
-			VkBuffer vertexBuffers[] = { M.vertexBuffer };
-			// property .vertexBuffer of models, contains the VkBuffer handle to its vertex buffer
-			VkDeviceSize offsets[] = { 0 };
-			vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-			// property .indexBuffer of models, contains the VkBuffer handle to its index buffer
-			vkCmdBindIndexBuffer(commandBuffer, M.indexBuffer, 0,
-				VK_INDEX_TYPE_UINT32);
-
-			// property .pipelineLayout of a pipeline contains its layout.
-			// property .descriptorSets of a descriptor set contains its elements.
-			vkCmdBindDescriptorSets(commandBuffer,
-				VK_PIPELINE_BIND_POINT_GRAPHICS,
-				P1.pipelineLayout, 1, 1, &mi.DS.descriptorSets[currentImage],
-				0, nullptr);
-
-			// property .indices.size() of models, contains the number of triangles * 3 of the mesh.
-			vkCmdDrawIndexed(commandBuffer,
-				static_cast<uint32_t>(M.indices.size()), 1, 0, 0, 0);
+			mi.drawModel(P1, commandBuffer, currentImage);
 		}
+		backgroundModelInfo.drawModel(P1, commandBuffer, currentImage);
 	}
 
 	// std::vector<glm::vec3> ObjsPos;
@@ -343,32 +368,16 @@ class MyProject : public BaseProject {
 			(currentTime - lastTime).count();
 		lastTime = currentTime;
 
-		void* data;
-
-		UniformBufferObject ubo{};
-
 		if (selectionMode == SelectionState::TRANSLATION_MODE) updateSelectedModelPosition(dt);
 		if (selectionMode == SelectionState::TRANSITION) selectedModelTransition(dt);
 
-		for (ModelInfo mi : modelInfos) {
-			
-			ubo.model = glm::scale(MakeWorldMatrixEuler(mi.position, mi.eulerRotation, mi.scale), glm::vec3(1.0, 1.0, 1.0));
-			ubo.color = mi.color;
-			ubo.selected = mi.selected ? 1.0f : 0.0f;
-
-			// Here is where you actually update your uniforms
-
-			//for (ModelInfo mi : modelInfos)
-			//{
-
-			vkMapMemory(device, mi.DS.uniformBuffersMemory[0][currentImage], 0,
-				sizeof(ubo), 0, &data);
-			memcpy(data, &ubo, sizeof(ubo));
-			vkUnmapMemory(device, mi.DS.uniformBuffersMemory[0][currentImage]);
-			//}
-
+		trayModelInfo.updateUBO(device, currentImage);
+		for (ModelInfo mi : piecesModelInfo) {
+			mi.updateUBO(device, currentImage);
 		}
+		backgroundModelInfo.updateUBO(device, currentImage);
 
+		void* data;
 		globalUniformBufferObject gubo{};
 		gubo.view = computeNewViewMatrix(dt);
 		gubo.proj = glm::perspective(glm::radians(45.0f),
@@ -428,16 +437,16 @@ class MyProject : public BaseProject {
 			return;
 		}
 
-		int selectedModelIndex = that->selectedModelIndex;
-		std::vector<ModelInfo> modelInfos = that->modelInfos;
+		int selectedPieceIndex = that->selectedPieceIndex;
+		std::vector<ModelInfo> piecesModelInfo = that->piecesModelInfo;
 
-		int newSelectedModelIndex = selectedModelIndex;
+		int newSelectedModelIndex = selectedPieceIndex;
 		std::optional<float> minDistance = std::nullopt;
 
-		glm::vec3 selectedModelPosition = modelInfos[selectedModelIndex].position;
+		glm::vec3 selectedModelPosition = piecesModelInfo[selectedPieceIndex].position;
 
-		for (int i = 1; i <= 7; i++) {
-			ModelInfo model = modelInfos[i];
+		for (int i = 0; i < piecesModelInfo.size(); i++) {
+			ModelInfo model = piecesModelInfo[i];
 
 			float angle = atan2(model.position.z - selectedModelPosition.z, model.position.x - selectedModelPosition.x);
 
@@ -447,7 +456,7 @@ class MyProject : public BaseProject {
 			else
 				isInCorrectDirection = (angleMin <= angle && angle <= glm::radians(180.0f)) || (glm::radians(-180.0f) <= angle && angle <= angleMax);
 
-			if (i != selectedModelIndex && isInCorrectDirection && std::count(modelToSkipIndexes.begin(), modelToSkipIndexes.end(), i)==0) {
+			if (i != selectedPieceIndex && isInCorrectDirection && std::count(modelToSkipIndexes.begin(), modelToSkipIndexes.end(), i)==0) {
 				// std::cerr << "hit " << i << std::endl;
 				float squaredDistance = (model.position.x - selectedModelPosition.x) * (model.position.x - selectedModelPosition.x) + (model.position.z - selectedModelPosition.z) * (model.position.z - selectedModelPosition.z);
 				if (!minDistance.has_value() || squaredDistance < minDistance) {
@@ -458,7 +467,7 @@ class MyProject : public BaseProject {
 		}
 
 		if (minDistance.value_or(-1) == 0) {
-			modelToSkipIndexes.push_back(selectedModelIndex);
+			modelToSkipIndexes.push_back(selectedPieceIndex);
 		}
 		else {
 			modelToSkipIndexes.clear();
@@ -466,24 +475,24 @@ class MyProject : public BaseProject {
 
 		std::cerr << modelToSkipIndexes.size() << std::endl;
 
-		that->selectModel(newSelectedModelIndex);
+		that->selectPiece(newSelectedModelIndex);
 	}
 
-	void selectModel(int index) {
-		modelInfos[selectedModelIndex].selected = false;
-		modelInfos[index].selected = true;
+	void selectPiece(int index) {
+		piecesModelInfo[selectedPieceIndex].selected = false;
+		piecesModelInfo[index].selected = true;
 		// std::cerr << index;
-		selectedModelIndex = index;
+		selectedPieceIndex = index;
 	}
 
 	void setSelectionMode(bool isSelectionMode) {
 		selectionMode = SelectionState::TRANSITION;
 		if (isSelectionMode) {
-			selectedModelTargetY = modelInfos[selectedModelIndex].position.y - 2;
+			selectedModelTargetY = piecesModelInfo[selectedPieceIndex].position.y - 2;
 			nextSelectionMode = SelectionState::SELECTION_MODE;
 		}
 		else {
-			selectedModelTargetY = modelInfos[selectedModelIndex].position.y + 2;
+			selectedModelTargetY = piecesModelInfo[selectedPieceIndex].position.y + 2;
 			nextSelectionMode = SelectionState::TRANSLATION_MODE;
 		}
 	}
@@ -562,24 +571,24 @@ class MyProject : public BaseProject {
 			rot += 1;
 		}
 
-		modelInfos[selectedModelIndex].position += linearSpeed * deltaTime * (-mov);
-		modelInfos[selectedModelIndex].eulerRotation.x += angularSpeed * deltaTime * rot;
+		piecesModelInfo[selectedPieceIndex].position += linearSpeed * deltaTime * (-mov);
+		piecesModelInfo[selectedPieceIndex].eulerRotation.x += angularSpeed * deltaTime * rot;
 	}
 
 	void selectedModelTransition(float deltaTime) {
 		static float linearSpeed = 4.0f;
 
-		if (selectedModelTargetY > modelInfos[selectedModelIndex].position.y) {
-			modelInfos[selectedModelIndex].position.y += linearSpeed * deltaTime;
-			if (modelInfos[selectedModelIndex].position.y >= selectedModelTargetY) {
-				modelInfos[selectedModelIndex].position.y = selectedModelTargetY;
+		if (selectedModelTargetY > piecesModelInfo[selectedPieceIndex].position.y) {
+			piecesModelInfo[selectedPieceIndex].position.y += linearSpeed * deltaTime;
+			if (piecesModelInfo[selectedPieceIndex].position.y >= selectedModelTargetY) {
+				piecesModelInfo[selectedPieceIndex].position.y = selectedModelTargetY;
 				selectionMode = nextSelectionMode;
 			}
 		}
 		else {
-			modelInfos[selectedModelIndex].position.y -= linearSpeed * deltaTime;
-			if (modelInfos[selectedModelIndex].position.y <= selectedModelTargetY) {
-				modelInfos[selectedModelIndex].position.y = selectedModelTargetY;
+			piecesModelInfo[selectedPieceIndex].position.y -= linearSpeed * deltaTime;
+			if (piecesModelInfo[selectedPieceIndex].position.y <= selectedModelTargetY) {
+				piecesModelInfo[selectedPieceIndex].position.y = selectedModelTargetY;
 				selectionMode = nextSelectionMode;
 			}
 		}
