@@ -350,7 +350,7 @@ class MyProject : public BaseProject {
 		globalDS.cleanup();
 
 		trayModelInfo.cleanup();
-		for (ModelInfo mi : piecesModelInfo)
+		for (PieceModelInfo mi : piecesModelInfo)
 		{
 			mi.cleanup(); //cleans both model and DS
 		}
@@ -374,7 +374,7 @@ class MyProject : public BaseProject {
 			0, nullptr);
 		
 		trayModelInfo.drawModel(P1, commandBuffer, currentImage);
-		for (ModelInfo mi : piecesModelInfo)
+		for (PieceModelInfo mi : piecesModelInfo)
 		{
 			mi.drawModel(P1, commandBuffer, currentImage);
 		}
@@ -399,7 +399,7 @@ class MyProject : public BaseProject {
 		if (selectionMode == SelectionState::TRANSITION) selectedModelTransition(dt);
 
 		trayModelInfo.updateUBO(device, currentImage);
-		for (ModelInfo mi : piecesModelInfo) {
+		for (PieceModelInfo mi : piecesModelInfo) {
 			mi.updateUBO(device, currentImage);
 		}
 		backgroundModelInfo.updateUBO(device, currentImage);
@@ -465,7 +465,7 @@ class MyProject : public BaseProject {
 		}
 
 		int selectedPieceIndex = that->selectedPieceIndex;
-		std::vector<ModelInfo> piecesModelInfo = that->piecesModelInfo;
+		std::vector<PieceModelInfo> piecesModelInfo = that->piecesModelInfo;
 
 		int newSelectedModelIndex = selectedPieceIndex;
 		std::optional<float> minDistance = std::nullopt;
@@ -473,7 +473,7 @@ class MyProject : public BaseProject {
 		glm::vec3 selectedModelPosition = piecesModelInfo[selectedPieceIndex].position;
 
 		for (int i = 0; i < piecesModelInfo.size(); i++) {
-			ModelInfo model = piecesModelInfo[i];
+			PieceModelInfo model = piecesModelInfo[i];
 
 			float angle = atan2(model.position.z - selectedModelPosition.z, model.position.x - selectedModelPosition.x);
 
