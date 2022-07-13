@@ -104,6 +104,11 @@ public:
 	glm::vec4 color;
 
 	ModelInfo() {
+		position = glm::vec3();
+		selected = false;
+		eulerRotation = glm::vec3();
+		scale = glm::vec3();
+		color = glm::vec4();
 	}
 
 	ModelInfo(BaseProject* pj, std::string path) {
@@ -174,6 +179,25 @@ public:
 		DS.cleanup();
 		model.cleanup();
 	}
+
+};
+
+class PieceModelInfo : public ModelInfo {
+private:
+
+public:
+	PieceModelInfo() : ModelInfo() {
+		selected = false;
+	}
+
+	PieceModelInfo(BaseProject* pj, std::string path) : ModelInfo(pj, path) {
+		selected = false;
+	}
+
+	PieceModelInfo(BaseProject* pj, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) :
+		ModelInfo(pj, vertices, indices) {
+		selected = false;
+	}
 };
 
 enum class SelectionState {
@@ -186,11 +210,15 @@ enum class SelectionState {
 class MyProject : public BaseProject {
 	private:
 	int	selectedPieceIndex = 0;
+	float selectedModelTargetY = 1.0f;
+
 	SelectionState selectionMode = SelectionState::SELECTION_MODE;
 	SelectionState nextSelectionMode = SelectionState::SELECTION_MODE;
 
-	float selectedModelTargetY = 1.0f;
+	float piecesBaseY = 1.0f;
+	float piecesElevatedY = 3.0f;
 
+	
 	protected:
 	// Here you list all the Vulkan objects you need:
 	
@@ -203,7 +231,7 @@ class MyProject : public BaseProject {
 
 	// Models, textures and Descriptors (values assigned to the uniforms)
 	ModelInfo trayModelInfo;
-	std::vector <ModelInfo> piecesModelInfo = {};
+	std::vector <PieceModelInfo> piecesModelInfo = {};
 	ModelInfo backgroundModelInfo;
 
 	Texture trayTexture;
@@ -258,7 +286,7 @@ class MyProject : public BaseProject {
 
 		for (std::string path : PIECES_MODEL_PATHS)
 		{
-			ModelInfo mi = ModelInfo(this, path);
+			PieceModelInfo mi = PieceModelInfo(this, path);
 			pieceTexture.init(this, PIECES_TEXTURE_PATH);
 			mi.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
 									{1, TEXTURE, 0, &pieceTexture} });
@@ -280,13 +308,13 @@ class MyProject : public BaseProject {
 		trayModelInfo.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
 		//pieces position and color initialization
-		piecesModelInfo[0].position = glm::vec3(-3.0f, 1.0f, 0.0f);
-		piecesModelInfo[1].position = glm::vec3(-2.0f, 1.0f, 0.0f);
-		piecesModelInfo[2].position = glm::vec3(-1.0f, 1.0f, 0.0f);
-		piecesModelInfo[3].position = glm::vec3(0.0f, 1.0f, 0.0f);
-		piecesModelInfo[4].position = glm::vec3(1.0f, 1.0f, 0.0f);
-		piecesModelInfo[5].position = glm::vec3(2.0f, 1.0f, 0.0f);
-		piecesModelInfo[6].position = glm::vec3(3.0f, 1.0f, 0.0f);
+		piecesModelInfo[0].position = glm::vec3(-3.0f, piecesBaseY, 0.0f);
+		piecesModelInfo[1].position = glm::vec3(-2.0f, piecesBaseY, 0.0f);
+		piecesModelInfo[2].position = glm::vec3(-1.0f, piecesBaseY, 0.0f);
+		piecesModelInfo[3].position = glm::vec3(0.0f, piecesBaseY, 0.0f);
+		piecesModelInfo[4].position = glm::vec3(1.0f, piecesBaseY, 0.0f);
+		piecesModelInfo[5].position = glm::vec3(2.0f, piecesBaseY, 0.0f);
+		piecesModelInfo[6].position = glm::vec3(3.0f, piecesBaseY, 0.0f);
 
 		piecesModelInfo[0].color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
 		piecesModelInfo[1].color = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
@@ -297,7 +325,6 @@ class MyProject : public BaseProject {
 		piecesModelInfo[6].color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
 		selectPiece(3);
-		selectedModelTargetY = piecesModelInfo[3].position.y;
 
 
 		// T1.init(this, TEXTURE_PATH);
@@ -473,7 +500,7 @@ class MyProject : public BaseProject {
 			modelToSkipIndexes.clear();
 		}
 
-		std::cerr << modelToSkipIndexes.size() << std::endl;
+		// std::cerr << modelToSkipIndexes.size() << std::endl;
 
 		that->selectPiece(newSelectedModelIndex);
 	}
@@ -481,6 +508,7 @@ class MyProject : public BaseProject {
 	void selectPiece(int index) {
 		piecesModelInfo[selectedPieceIndex].selected = false;
 		piecesModelInfo[index].selected = true;
+		selectedModelTargetY = piecesModelInfo[index].position.y;
 		// std::cerr << index;
 		selectedPieceIndex = index;
 	}
@@ -488,11 +516,11 @@ class MyProject : public BaseProject {
 	void setSelectionMode(bool isSelectionMode) {
 		selectionMode = SelectionState::TRANSITION;
 		if (isSelectionMode) {
-			selectedModelTargetY = piecesModelInfo[selectedPieceIndex].position.y - 2;
+			selectedModelTargetY = piecesBaseY;
 			nextSelectionMode = SelectionState::SELECTION_MODE;
 		}
 		else {
-			selectedModelTargetY = piecesModelInfo[selectedPieceIndex].position.y + 2;
+			selectedModelTargetY = piecesElevatedY;
 			nextSelectionMode = SelectionState::TRANSLATION_MODE;
 		}
 	}
@@ -594,6 +622,11 @@ class MyProject : public BaseProject {
 		}
 	}
 };
+
+
+//THINGS MODIDIED ON MyProject.hpp
+//1759: modified color blending to include alpha blending
+
 
 // This is the main: probably you do not need to touch this!
 int main() {

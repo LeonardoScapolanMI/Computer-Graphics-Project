@@ -23,6 +23,7 @@ layout(location = 2) in vec2 fragTexCoord;
 layout(location = 0) out vec4 outColor;
 
 void main() {
+	const float alpha = ubo.color.a;
 	vec3  diffColor = texture(texSampler, fragTexCoord).rgb * ubo.color.rgb;
 	if(ubo.selected > 0){
 		const float whiteWeight = 0.8f;
@@ -59,7 +60,7 @@ void main() {
 
 
 	if(ubo.selected > 0)
-		outColor = vec4(clamp((ambient + diffuse + specular)*lC, vec3(0.0f), vec3(1.0f)), 1.0f);
+		outColor = vec4(clamp((ambient + diffuse + specular)*lC, vec3(0.0f), vec3(1.0f)), alpha);
 	else
-		outColor = vec4(clamp(ambient + diffuse + specular, vec3(0.0f), vec3(1.0f)), 1.0f);
+		outColor = vec4(clamp(ambient + diffuse + specular, vec3(0.0f), vec3(1.0f)), alpha);
 }
