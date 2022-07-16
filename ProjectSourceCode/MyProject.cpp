@@ -17,7 +17,6 @@ const std::string TRAY_TEXTURE_PATH = "textures/texture-background.jpg";
 const std::string PIECES_TEXTURE_PATH = "textures/faded-gray-wooden-textured-background.jpg";
 
 
-
 const std::vector<Vertex> planeVertices = {
 	{
 		glm::vec3(-1, 0, -1),
@@ -42,6 +41,9 @@ const std::vector<Vertex> planeVertices = {
 };
 const std::vector<uint32_t> planeIndices = {0, 2, 1, 0, 3, 2};
 
+
+const float PIECES_BASE_Y = 1.0f;
+const float PIECES_ELEVATED_Y = 3.0f;
 
 
 // function to make a look in view matrix starting from the camera position and it's rotation (angles in radiants)
@@ -91,13 +93,12 @@ struct UniformBufferObject {
 
 // class containing the informations for each model
 class ModelInfo {
-private:
+protected:
 	std::string path;
 	Model model;
 
 public:
 	DescriptorSet DS;
-	bool selected;
 	glm::vec3 position;
 	glm::vec3 eulerRotation;
 	glm::vec3 scale;
@@ -105,7 +106,6 @@ public:
 
 	ModelInfo() {
 		position = glm::vec3();
-		selected = false;
 		eulerRotation = glm::vec3();
 		scale = glm::vec3();
 		color = glm::vec4();
@@ -119,7 +119,6 @@ public:
 		eulerRotation = glm::vec3(0.0f, 0.0f, 0.0f);
 		scale = glm::vec3(1.0f, 1.0f, 1.0f);
 		color = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
-		selected = false;
 	}
 
 	ModelInfo(BaseProject* pj, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) {
@@ -133,7 +132,6 @@ public:
 		eulerRotation = glm::vec3(0.0f, 0.0f, 0.0f);
 		scale = glm::vec3(1.0f, 1.0f, 1.0f);
 		color = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
-		selected = false;
 	}
 
 	const Model& getModel() {
@@ -162,12 +160,13 @@ public:
 	}
 
 	const void updateUBO(VkDevice device, uint32_t currentImage) {
-		void* data;
 		UniformBufferObject ubo;
 
 		ubo.model = glm::scale(MakeWorldMatrixEuler(position, eulerRotation, scale), glm::vec3(1.0, 1.0, 1.0));
 		ubo.color = color;
-		ubo.selected = selected ? 1.0f : 0.0f;
+		ubo.selected = 0.0f;
+
+		void* data;
 
 		vkMapMemory(device, DS.uniformBuffersMemory[0][currentImage], 0,
 			sizeof(ubo), 0, &data);
@@ -183,9 +182,12 @@ public:
 };
 
 class PieceModelInfo : public ModelInfo {
-private:
+protected:
 
 public:
+	bool selected;
+	DescriptorSet previewDS;
+
 	PieceModelInfo() : ModelInfo() {
 		selected = false;
 	}
@@ -197,6 +199,56 @@ public:
 	PieceModelInfo(BaseProject* pj, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) :
 		ModelInfo(pj, vertices, indices) {
 		selected = false;
+	}
+
+	const void drawModel(Pipeline P, VkCommandBuffer commandBuffer, int currentImage) {
+		ModelInfo::drawModel(P, commandBuffer, currentImage);
+
+		vkCmdBindDescriptorSets(commandBuffer,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			P.pipelineLayout, 1, 1, &(previewDS.descriptorSets[currentImage]),
+			0, nullptr);
+
+		vkCmdDrawIndexed(commandBuffer,
+			static_cast<uint32_t>(model.indices.size()), 1, 0, 0, 0);
+	}
+
+	const void updateUBO(VkDevice device, uint32_t currentImage) {
+		UniformBufferObject ubo;
+
+		ubo.model = glm::scale(MakeWorldMatrixEuler(position, eulerRotation, scale), glm::vec3(1.0, 1.0, 1.0));
+		ubo.color = color;
+		ubo.selected = selected ? 1.0f : 0.0f;
+
+		void* data;
+
+		vkMapMemory(device, DS.uniformBuffersMemory[0][currentImage], 0,
+			sizeof(ubo), 0, &data);
+		memcpy(data, &ubo, sizeof(ubo));
+		vkUnmapMemory(device, DS.uniformBuffersMemory[0][currentImage]);
+	}
+
+	const void updatePreviewUBO(VkDevice device, uint32_t currentImage, bool visible) {
+		UniformBufferObject ubo;
+
+		glm::vec3 pos = glm::vec3(position.x, PIECES_BASE_Y, position.z);
+
+		ubo.model = glm::scale(MakeWorldMatrixEuler(pos, eulerRotation, scale), glm::vec3(1.0, 1.0, 1.0));
+		ubo.color = color;
+		ubo.color.a *= selected && visible ? 0.5f : 0.0f;
+		ubo.selected = 0.0f;
+
+		void* data;
+
+		vkMapMemory(device, previewDS.uniformBuffersMemory[0][currentImage], 0,
+			sizeof(ubo), 0, &data);
+		memcpy(data, &ubo, sizeof(ubo));
+		vkUnmapMemory(device, previewDS.uniformBuffersMemory[0][currentImage]);
+	}
+
+	void cleanup() {
+		ModelInfo::cleanup();
+		previewDS.cleanup();
 	}
 };
 
@@ -214,9 +266,6 @@ class MyProject : public BaseProject {
 
 	SelectionState selectionMode = SelectionState::SELECTION_MODE;
 	SelectionState nextSelectionMode = SelectionState::SELECTION_MODE;
-
-	float piecesBaseY = 1.0f;
-	float piecesElevatedY = 3.0f;
 
 	
 	protected:
@@ -251,9 +300,9 @@ class MyProject : public BaseProject {
 		initialBackgroundColor = {0.0f, 0.0f, 0.0f, 1.0f};
 		
 		// Descriptor pool sizes
-		uniformBlocksInPool = 1 + 1 + PIECES_MODEL_PATHS.size() + 1; //global + 1 per model (tray, pieces, background)
+		uniformBlocksInPool = 1 + 1 + 2 * PIECES_MODEL_PATHS.size() + 1; //global + 1 per model and 2 for pieces (tray, pieces, background)
 		texturesInPool = 2;
-		setsInPool = 1 + 1 + PIECES_MODEL_PATHS.size() + 1;
+		setsInPool = 1 + 1 + 2 * PIECES_MODEL_PATHS.size() + 1;
 	}
 
 	// Here you load and setup all your Vulkan objects
@@ -279,23 +328,25 @@ class MyProject : public BaseProject {
 		P1.init(this, "shaders/vert.spv", "shaders/frag.spv", { &DSLglobal, &DSLobj });
 
 		// Models, textures and Descriptors (values assigned to the uniforms)
-		trayModelInfo = ModelInfo(this, TRAY_MODEL_PATH);
 		trayTexture.init(this, TRAY_TEXTURE_PATH);
+		pieceTexture.init(this, PIECES_TEXTURE_PATH);
+
+		trayModelInfo = ModelInfo(this, TRAY_MODEL_PATH);
 		trayModelInfo.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
 								{1, TEXTURE, 0, &trayTexture} });
 
 		for (std::string path : PIECES_MODEL_PATHS)
 		{
 			PieceModelInfo mi = PieceModelInfo(this, path);
-			pieceTexture.init(this, PIECES_TEXTURE_PATH);
 			mi.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
+									{1, TEXTURE, 0, &pieceTexture} });
+			mi.previewDS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
 									{1, TEXTURE, 0, &pieceTexture} });
 			piecesModelInfo.push_back(mi);
 		}
 
 		//background plane initialization
 		backgroundModelInfo = ModelInfo(this, planeVertices, planeIndices);
-		pieceTexture.init(this, PIECES_TEXTURE_PATH);
 		backgroundModelInfo.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
 									{1, TEXTURE, 0, &pieceTexture} });
 		backgroundModelInfo.position = glm::vec3(0.0f, -1.0f, 0.0f);
@@ -308,13 +359,13 @@ class MyProject : public BaseProject {
 		trayModelInfo.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
 		//pieces position and color initialization
-		piecesModelInfo[0].position = glm::vec3(-3.0f, piecesBaseY, 0.0f);
-		piecesModelInfo[1].position = glm::vec3(-2.0f, piecesBaseY, 0.0f);
-		piecesModelInfo[2].position = glm::vec3(-1.0f, piecesBaseY, 0.0f);
-		piecesModelInfo[3].position = glm::vec3(0.0f, piecesBaseY, 0.0f);
-		piecesModelInfo[4].position = glm::vec3(1.0f, piecesBaseY, 0.0f);
-		piecesModelInfo[5].position = glm::vec3(2.0f, piecesBaseY, 0.0f);
-		piecesModelInfo[6].position = glm::vec3(3.0f, piecesBaseY, 0.0f);
+		piecesModelInfo[0].position = glm::vec3(-3.0f, PIECES_BASE_Y, 0.0f);
+		piecesModelInfo[1].position = glm::vec3(-2.0f, PIECES_BASE_Y, 0.0f);
+		piecesModelInfo[2].position = glm::vec3(-1.0f, PIECES_BASE_Y, 0.0f);
+		piecesModelInfo[3].position = glm::vec3(0.0f, PIECES_BASE_Y, 0.0f);
+		piecesModelInfo[4].position = glm::vec3(1.0f, PIECES_BASE_Y, 0.0f);
+		piecesModelInfo[5].position = glm::vec3(2.0f, PIECES_BASE_Y, 0.0f);
+		piecesModelInfo[6].position = glm::vec3(3.0f, PIECES_BASE_Y, 0.0f);
 
 		piecesModelInfo[0].color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
 		piecesModelInfo[1].color = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
@@ -336,7 +387,6 @@ class MyProject : public BaseProject {
 		// third  element : only for UNIFORMs, the size of the corresponding C++ object
 		// fourth element : only for TEXTUREs, the pointer to the corresponding texture object
 					{0, UNIFORM, sizeof(globalUniformBufferObject), nullptr}
-		//			{1, TEXTURE, 0, &T1}
 				});
 
 		glfwSetWindowUserPointer(window, this);
@@ -401,6 +451,7 @@ class MyProject : public BaseProject {
 		trayModelInfo.updateUBO(device, currentImage);
 		for (PieceModelInfo mi : piecesModelInfo) {
 			mi.updateUBO(device, currentImage);
+			mi.updatePreviewUBO(device, currentImage, selectionMode == SelectionState::TRANSLATION_MODE || selectionMode == SelectionState::TRANSITION);
 		}
 		backgroundModelInfo.updateUBO(device, currentImage);
 
@@ -516,11 +567,11 @@ class MyProject : public BaseProject {
 	void setSelectionMode(bool isSelectionMode) {
 		selectionMode = SelectionState::TRANSITION;
 		if (isSelectionMode) {
-			selectedModelTargetY = piecesBaseY;
+			selectedModelTargetY = PIECES_BASE_Y;
 			nextSelectionMode = SelectionState::SELECTION_MODE;
 		}
 		else {
-			selectedModelTargetY = piecesElevatedY;
+			selectedModelTargetY = PIECES_ELEVATED_Y;
 			nextSelectionMode = SelectionState::TRANSLATION_MODE;
 		}
 	}
