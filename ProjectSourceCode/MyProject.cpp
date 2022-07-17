@@ -423,13 +423,21 @@ class MyProject : public BaseProject {
 		piecesModelInfo[5].position = glm::vec3(-1.0f, PIECES_BASE_Y, -2.0f) + PIECES_MODEL_PRE_INFO[5].offset;
 		piecesModelInfo[6].position = glm::vec3(0.0f, PIECES_BASE_Y, 1.0f) + PIECES_MODEL_PRE_INFO[6].offset;
 
-		piecesModelInfo[0].color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+		/*piecesModelInfo[0].color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
 		piecesModelInfo[1].color = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
 		piecesModelInfo[2].color = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
 		piecesModelInfo[3].color = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
 		piecesModelInfo[4].color = glm::vec4(1.0f, 0.0f, 1.0f, 1.0f);
 		piecesModelInfo[5].color = glm::vec4(0.0f, 1.0f, 1.0f, 1.0f);
-		piecesModelInfo[6].color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		piecesModelInfo[6].color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);*/
+
+		piecesModelInfo[0].color = glm::vec4(104, 192, 210, 255) / 255.0f;
+		piecesModelInfo[1].color = glm::vec4(248, 200, 44, 255) / 255.0f;
+		piecesModelInfo[2].color = glm::vec4(240, 242, 35, 255) / 255.0f;
+		piecesModelInfo[3].color = glm::vec4(239, 61, 97, 255) / 255.0f;
+		piecesModelInfo[4].color = glm::vec4(167, 150, 194, 255) / 255.0f;
+		piecesModelInfo[5].color = glm::vec4(241, 149, 200, 255) / 255.0f;
+		piecesModelInfo[6].color = glm::vec4(201, 232, 145, 255) / 255.0f;
 
 		selectPiece(3);
 
