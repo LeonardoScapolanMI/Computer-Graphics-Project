@@ -520,7 +520,7 @@ class MyProject : public BaseProject {
 		gubo.proj[1][1] *= -1;
 		gubo.eyePos = glm::vec3(0.0f, 8.0f, 0.0f);
 		gubo.lightPos = glm::vec3(0.0f, 5.0f, 0.0f);
-		gubo.paramDecay = glm::vec4(8.0f, 1.0f, 0.4f, 0.3f); //g, decay, Cin, Cout
+		gubo.paramDecay = glm::vec4(8.0f, 1.0f, 0.9f, 0.92f); //g, decay, Cin, Cout
 		
 		vkMapMemory(device, globalDS.uniformBuffersMemory[0][currentImage], 0,
 			sizeof(gubo), 0, &data);
