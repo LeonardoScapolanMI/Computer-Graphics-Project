@@ -99,19 +99,17 @@ const float PIECES_BASE_Y = 0.125f;
 const float PIECES_ELEVATED_Y = 2 + PIECES_BASE_Y;
 
 
-// function to make a look in view matrix starting from the camera position and it's rotation (angles in radiants)
+// function to make a look in view matrix starting from the camera position and it's rotation (angles in degrees)
 // cameraPos: coordinates of the camera
-// alpha: angle of the camera with respect to the y axis (horizontal looking direction, yaw)
-// beta: angle of the camera with respect to the x axis (vertical elevation, pitch)
-// rho: angle of the camera with respect to the z axis (inclination, roll)
-glm::mat4 lookIn(glm::vec3 cameraPos, float alpha, float beta, float rho) {
-	return glm::rotate(glm::mat4(1.0), -rho, glm::vec3(0, 0, 1))
-		* glm::rotate(glm::mat4(1.0), -beta, glm::vec3(1, 0, 0))
-		* glm::rotate(glm::mat4(1.0), -alpha, glm::vec3(0, 1, 0))
+// YPR: yaw(x, horizontal looking direction), pitch(y, vertical elevation) and roll(z, inclination) of the object
+glm::mat4 lookIn(glm::vec3 cameraPos, glm::vec3 YPR) {
+	return glm::rotate(glm::mat4(1.0), -glm::radians(YPR.z), glm::vec3(0, 0, 1))
+		* glm::rotate(glm::mat4(1.0), -glm::radians(YPR.y), glm::vec3(1, 0, 0))
+		* glm::rotate(glm::mat4(1.0), -glm::radians(YPR.x), glm::vec3(0, 1, 0))
 		* glm::translate(glm::mat4(1.0), -cameraPos);
 }
 
-// function to make a world matrix starting from the object position, rotation (angles in radiants) and scale
+// function to make a world matrix starting from the object position, rotation (angles in degrees) and scale
 // pos: coordinates of the object
 // YPR: yaw(x), pitch(y) and roll(z) of the object
 // size: scaling factors for the object
@@ -216,7 +214,7 @@ public:
 	const void updateUBO(VkDevice device, uint32_t currentImage) {
 		UniformBufferObject ubo;
 
-		ubo.model = glm::scale(MakeWorldMatrixEuler(position, eulerRotation, scale), glm::vec3(1.0, 1.0, 1.0));
+		ubo.model = MakeWorldMatrixEuler(position, eulerRotation, scale);
 		ubo.color = color;
 		ubo.selected = 0.0f;
 
@@ -270,7 +268,7 @@ public:
 	const void updateUBO(VkDevice device, uint32_t currentImage) {
 		UniformBufferObject ubo;
 
-		ubo.model = glm::scale(MakeWorldMatrixEuler(position, eulerRotation, scale), glm::vec3(1.0, 1.0, 1.0));
+		ubo.model = MakeWorldMatrixEuler(position, eulerRotation, scale);
 		ubo.color = color;
 		ubo.selected = selected ? 1.0f : 0.0f;
 
@@ -287,7 +285,7 @@ public:
 
 		glm::vec3 pos = glm::vec3(position.x, PIECES_BASE_Y, position.z);
 
-		ubo.model = glm::scale(MakeWorldMatrixEuler(pos, eulerRotation, scale), glm::vec3(1.0, 1.0, 1.0));
+		ubo.model = MakeWorldMatrixEuler(pos, eulerRotation, scale);
 		ubo.color = color;
 		ubo.color.a *= selected && visible ? 0.5f : 0.0f;
 		ubo.selected = 0.0f;
@@ -321,7 +319,9 @@ class MyProject : public BaseProject {
 	SelectionState selectionMode = SelectionState::SELECTION_MODE;
 	SelectionState nextSelectionMode = SelectionState::SELECTION_MODE;
 
-	
+	glm::vec3 cameraPos = glm::vec3(0.0f, 8.0f, 0.0f);
+	glm::vec3 cameraYPR = glm::vec3(0.0f, -90.0f, 180.0f);
+
 	protected:
 	// Here you list all the Vulkan objects you need:
 	
@@ -511,14 +511,16 @@ class MyProject : public BaseProject {
 		}
 		backgroundModelInfo.updateUBO(device, currentImage);
 
+		updateCameraPos(dt);
+
 		void* data;
 		globalUniformBufferObject gubo{};
-		gubo.view = computeNewViewMatrix(dt);
+		gubo.view = lookIn(cameraPos, cameraYPR);
 		gubo.proj = glm::perspective(glm::radians(45.0f),
 			swapChainExtent.width / (float)swapChainExtent.height,
 			0.1f, 10.0f);
 		gubo.proj[1][1] *= -1;
-		gubo.eyePos = glm::vec3(0.0f, 8.0f, 0.0f);
+		gubo.eyePos = cameraPos;
 		gubo.lightPos = glm::vec3(0.0f, 5.0f, 0.0f);
 		gubo.paramDecay = glm::vec4(8.0f, 1.0f, 0.4f, 0.3f); //g, decay, Cin, Cout
 		
@@ -548,19 +550,19 @@ class MyProject : public BaseProject {
 
 		float angleMin;
 		float angleMax;
-		if (key == GLFW_KEY_D && action == GLFW_RELEASE) {
+		if (key == GLFW_KEY_A && action == GLFW_RELEASE) {
 			angleMin = glm::radians(-45.0f);
 			angleMax = glm::radians(45.0f);
 		}
-		else if (key == GLFW_KEY_S && action == GLFW_RELEASE) {
+		else if (key == GLFW_KEY_W && action == GLFW_RELEASE) {
 			angleMin = glm::radians(45.0f);
 			angleMax = glm::radians(135.0f);
 		}
-		else if (key == GLFW_KEY_A && action == GLFW_RELEASE) {
+		else if (key == GLFW_KEY_D && action == GLFW_RELEASE) {
 			angleMin = glm::radians(135.0f);
 			angleMax = glm::radians(-135.0f);
 		}
-		else if (key == GLFW_KEY_W && action == GLFW_RELEASE) {
+		else if (key == GLFW_KEY_S && action == GLFW_RELEASE) {
 			angleMin = glm::radians(-135.0f);
 			angleMax = glm::radians(-45.0f);
 		}
@@ -633,8 +635,8 @@ class MyProject : public BaseProject {
 		}
 	}
 
-	glm::mat4 computeNewViewMatrix(float deltaTime) {
-		static glm::mat4 viewMatrix = lookIn(glm::vec3(0.0f, 8.0f, 0.0f), glm::radians(0.0f), glm::radians(-90.0f), glm::radians(0.0f)); // camera starts looking down
+	void updateCameraPos(float deltaTime) {
+		//static glm::mat4 viewMatrix = lookIn(cameraPos, glm::radians(cameraYPR.x), glm::radians(cameraYPR.y), glm::radians(cameraYPR.z)); // camera starts looking down
 
 		static float linearSpeed = 1.0f;
 		// static float angularSpeed = 20;
@@ -667,13 +669,17 @@ class MyProject : public BaseProject {
 			mov.z += 1;
 		}
 
-		viewMatrix = glm::translate(glm::mat4(1.0), linearSpeed * deltaTime * (-mov))
+		cameraPos += glm::vec3(glm::rotate(glm::mat4(1.0), -glm::radians(cameraYPR.z), glm::vec3(0, 0, 1))
+			* glm::rotate(glm::mat4(1.0), -glm::radians(cameraYPR.y), glm::vec3(1, 0, 0))
+			* glm::rotate(glm::mat4(1.0), -glm::radians(cameraYPR.x), glm::vec3(0, 1, 0)) * linearSpeed * deltaTime * glm::vec4(mov, 0));
+
+		/*viewMatrix = glm::translate(glm::mat4(1.0), linearSpeed * deltaTime * (-mov))
 			// * glm::rotate(glm::mat4(1.0), angularSpeed * deltaTime * rot.z, glm::vec3(0, 0, 1))
 			// * glm::rotate(glm::mat4(1.0), angularSpeed * deltaTime * rot.y, glm::vec3(0, 1, 0))
 			// * glm::rotate(glm::mat4(1.0), angularSpeed * deltaTime * rot.x, glm::vec3(1, 0, 0))
-			* viewMatrix;
+			* viewMatrix*/;
 
-		return viewMatrix;
+		//return viewMatrix;
 	}
 
 	void updateSelectedModelPosition(float deltaTime) {
@@ -707,7 +713,7 @@ class MyProject : public BaseProject {
 			rot += 1;
 		}
 
-		piecesModelInfo[selectedPieceIndex].position += linearSpeed * deltaTime * (-mov);
+		piecesModelInfo[selectedPieceIndex].position += linearSpeed * deltaTime * mov;
 		piecesModelInfo[selectedPieceIndex].eulerRotation.x += angularSpeed * deltaTime * rot;
 	}
 
