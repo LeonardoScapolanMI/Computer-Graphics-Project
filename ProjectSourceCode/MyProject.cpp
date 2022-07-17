@@ -21,7 +21,7 @@ const std::vector<modelPreInfo> PIECES_MODEL_PRE_INFO = {
 
 const std::string TRAY_TEXTURE_PATH = "textures/texture-background.jpg";
 const std::string PIECES_TEXTURE_PATH = "textures/faded-gray-wooden-textured-background.jpg";
-
+const std::string BACKGROUND_TEXTURE_PATH = "textures/background-plane.jpg";
 
 const float PLANE_SCALE = 15.0f;
 const std::vector<Vertex> planeVertices = {
@@ -158,20 +158,20 @@ public:
 	glm::vec4 color;
 
 	ModelInfo() {
-		position = glm::vec3();
-		eulerRotation = glm::vec3();
-		scale = glm::vec3();
-		color = glm::vec4();
+		position = position = glm::vec3(0.0f, 0.0f, 0.0f);
+		eulerRotation = glm::vec3(0.0f, 0.0f, 0.0f);
+		scale = glm::vec3(1.0f, 1.0f, 1.0f);
+		color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 	}
 
 	ModelInfo(BaseProject* pj, std::string path) {
 		this->path = path;
 		model.init(pj, path);
 
-		position = glm::vec3(0.0f, 1.0f, -1.0f);
+		position = glm::vec3(0.0f, 0.0f, 0.0f);
 		eulerRotation = glm::vec3(0.0f, 0.0f, 0.0f);
 		scale = glm::vec3(1.0f, 1.0f, 1.0f);
-		color = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+		color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 	}
 
 	ModelInfo(BaseProject* pj, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) {
@@ -181,10 +181,10 @@ public:
 		model.createVertexBuffer();
 		model.createIndexBuffer();
 
-		position = glm::vec3(0.0f, 1.0f, -1.0f);
+		position = glm::vec3(0.0f, 0.0f, 0.0f);
 		eulerRotation = glm::vec3(0.0f, 0.0f, 0.0f);
 		scale = glm::vec3(1.0f, 1.0f, 1.0f);
-		color = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+		color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 	}
 
 	const Model& getModel() {
@@ -338,6 +338,7 @@ class MyProject : public BaseProject {
 
 	Texture trayTexture;
 	Texture pieceTexture;
+	Texture backgroundTexture;
 	DescriptorSet globalDS;
 
 
@@ -354,7 +355,7 @@ class MyProject : public BaseProject {
 		
 		// Descriptor pool sizes
 		uniformBlocksInPool = 1 + 1 + 2 * PIECES_MODEL_PRE_INFO.size() + 1; //global + 1 per model (tray, pieces, background) and another for each piece
-		texturesInPool = 2;
+		texturesInPool = 3;
 		setsInPool = 1 + 1 + 2 * PIECES_MODEL_PRE_INFO.size() + 1;
 	}
 
@@ -383,6 +384,7 @@ class MyProject : public BaseProject {
 		// Models, textures and Descriptors (values assigned to the uniforms)
 		trayTexture.init(this, TRAY_TEXTURE_PATH);
 		pieceTexture.init(this, PIECES_TEXTURE_PATH);
+		backgroundTexture.init(this, BACKGROUND_TEXTURE_PATH);
 
 		trayModelInfo = ModelInfo(this, TRAY_MODEL_PRE_INFO.path);
 		trayModelInfo.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
@@ -401,9 +403,9 @@ class MyProject : public BaseProject {
 		//background plane initialization
 		backgroundModelInfo = ModelInfo(this, planeVertices, planeIndices);
 		backgroundModelInfo.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
-									{1, TEXTURE, 0, &pieceTexture} });
+									{1, TEXTURE, 0, &backgroundTexture} });
 		backgroundModelInfo.position = glm::vec3(0.0f, 0.0f, 0.0f);
-		backgroundModelInfo.color = glm::vec4(0.5f, 0.2f, 1.0f, 1.0f);
+		backgroundModelInfo.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 		backgroundModelInfo.scale =  PLANE_SCALE * glm::vec3(1.0f, 1.0f, 1.0f);
 
 
