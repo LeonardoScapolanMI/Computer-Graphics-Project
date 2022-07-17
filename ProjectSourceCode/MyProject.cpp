@@ -2,21 +2,28 @@
 
 #include "MyProject.hpp"
 
-const std::string TRAY_MODEL_PATH = "models/tray.obj";
-const std::vector<std::string> PIECES_MODEL_PATHS = { 
-	"models/piece1.obj", 
-	"models/piece2.obj",
-	"models/piece3.obj",
-	"models/piece4.obj",
-	"models/piece5.obj",
-	"models/piece6.obj",
-	"models/piece7.obj"
+struct modelPreInfo {
+	std::string path;
+	glm::vec3 offset;
+};
+
+
+const modelPreInfo TRAY_MODEL_PRE_INFO = { "models/tray.obj", glm::vec3(-2 - -2.001980, 0 - -0.030329, -2 - -2.116832)};
+const std::vector<modelPreInfo> PIECES_MODEL_PRE_INFO = {
+	{"models/piece1.obj", glm::vec3(0, -0.125 - 0.112829, 0)},
+	{"models/piece2.obj", glm::vec3(-1.5 - -1.454270, 0, -0.5 - -0.545730)},
+	{"models/piece3.obj", glm::vec3(0.5 - 0.454155, 0, 0)},
+	{"models/piece4.obj", glm::vec3(0.5 - 0.570166, 0, 0.5 - 0.429094)},
+	{"models/piece5.obj", glm::vec3(0 - -0.003173, 0, 0)},
+	{"models/piece6.obj", glm::vec3(0, 0.125 - 0.131214, 1 - 0.623514)},
+	{"models/piece7.obj", glm::vec3(0, 0, -1 - -1.091299)}
 };
 
 const std::string TRAY_TEXTURE_PATH = "textures/texture-background.jpg";
 const std::string PIECES_TEXTURE_PATH = "textures/faded-gray-wooden-textured-background.jpg";
+const std::string BACKGROUND_TEXTURE_PATH = "textures/background-plane.jpg";
 
-
+const float PLANE_SCALE = 15.0f;
 const std::vector<Vertex> planeVertices = {
 	{
 		glm::vec3(-1, 0, -1),
@@ -37,13 +44,59 @@ const std::vector<Vertex> planeVertices = {
 		glm::vec3(-1, 0, 1),
 		glm::vec3(0, 1, 0),
 		glm::vec2(0, 1)
-	}
+	},
+	{
+		glm::vec3(-2.6f / PLANE_SCALE, 0, -2.6f / PLANE_SCALE),
+		glm::vec3(0, 1, 0),
+		glm::vec2(0.5f - 2.6f / (PLANE_SCALE * 2.0f), 0.5f - 2.6f / (PLANE_SCALE * 2.0f))
+	},
+	{
+		glm::vec3(2.6f / PLANE_SCALE, 0, -2.6f / PLANE_SCALE),
+		glm::vec3(0, 1, 0),
+		glm::vec2(0.5f + 2.6f / (PLANE_SCALE * 2.0f), 0.5f - 2.6f / (PLANE_SCALE * 2.0f))
+	},
+	{
+		glm::vec3(2.6f / PLANE_SCALE, 0, 2.6f / PLANE_SCALE),
+		glm::vec3(0, 1, 0),
+		glm::vec2(0.5f + 2.6f / (PLANE_SCALE * 2.0f), 0.5f + 2.6f / (PLANE_SCALE * 2.0f))
+	},
+	{
+		glm::vec3(-2.6f / PLANE_SCALE, 0, 2.6f / PLANE_SCALE),
+		glm::vec3(0, 1, 0),
+		glm::vec2(0.5f - 2.6f / (PLANE_SCALE * 2.0f), 0.5f + 2.6f / (PLANE_SCALE * 2.0f))
+	},
+	{
+		glm::vec3(-2.6f / PLANE_SCALE, 0, -1),
+		glm::vec3(0, 1, 0),
+		glm::vec2(0.5f - 2.6f / (PLANE_SCALE * 2.0f), 0)
+	},
+	{
+		glm::vec3(2.6f / PLANE_SCALE, 0, -1),
+		glm::vec3(0, 1, 0),
+		glm::vec2(0.5f + 2.6f / (PLANE_SCALE * 2.0f), 0)
+	},
+	{
+		glm::vec3(2.6f / PLANE_SCALE, 0, 1),
+		glm::vec3(0, 1, 0),
+		glm::vec2(0.5f + 2.6f / (PLANE_SCALE * 2.0f), 1)
+	},
+	{
+		glm::vec3(-2.6f / PLANE_SCALE, 0, 1),
+		glm::vec3(0, 1, 0),
+		glm::vec2(0.5f - 2.6f / (PLANE_SCALE * 2.0f), 1)
+	},
 };
-const std::vector<uint32_t> planeIndices = {0, 2, 1, 0, 3, 2};
+// const std::vector<uint32_t> planeIndices = { 0, 2, 1, 0, 3, 2 };
+const std::vector<uint32_t> planeIndices = {
+	0, 11, 8, 0, 3, 11,
+	7, 10, 6, 7, 11, 10,
+	8, 5, 9, 8, 4, 5,
+	9, 2, 1, 9, 10, 2
+};
 
 
-const float PIECES_BASE_Y = 1.0f;
-const float PIECES_ELEVATED_Y = 3.0f;
+const float PIECES_BASE_Y = 0.125f;
+const float PIECES_ELEVATED_Y = 2 + PIECES_BASE_Y;
 
 
 // function to make a look in view matrix starting from the camera position and it's rotation (angles in radiants)
@@ -106,20 +159,20 @@ public:
 	glm::vec4 color;
 
 	ModelInfo() {
-		position = glm::vec3();
-		eulerRotation = glm::vec3();
-		scale = glm::vec3();
-		color = glm::vec4();
+		position = position = glm::vec3(0.0f, 0.0f, 0.0f);
+		eulerRotation = glm::vec3(0.0f, 0.0f, 0.0f);
+		scale = glm::vec3(1.0f, 1.0f, 1.0f);
+		color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 	}
 
 	ModelInfo(BaseProject* pj, std::string path) {
 		this->path = path;
 		model.init(pj, path);
 
-		position = glm::vec3(0.0f, 1.0f, -1.0f);
+		position = glm::vec3(0.0f, 0.0f, 0.0f);
 		eulerRotation = glm::vec3(0.0f, 0.0f, 0.0f);
 		scale = glm::vec3(1.0f, 1.0f, 1.0f);
-		color = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+		color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 	}
 
 	ModelInfo(BaseProject* pj, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) {
@@ -129,10 +182,10 @@ public:
 		model.createVertexBuffer();
 		model.createIndexBuffer();
 
-		position = glm::vec3(0.0f, 1.0f, -1.0f);
+		position = glm::vec3(0.0f, 0.0f, 0.0f);
 		eulerRotation = glm::vec3(0.0f, 0.0f, 0.0f);
 		scale = glm::vec3(1.0f, 1.0f, 1.0f);
-		color = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+		color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 	}
 
 	const Model& getModel() {
@@ -286,6 +339,7 @@ class MyProject : public BaseProject {
 
 	Texture trayTexture;
 	Texture pieceTexture;
+	Texture backgroundTexture;
 	DescriptorSet globalDS;
 
 
@@ -301,9 +355,9 @@ class MyProject : public BaseProject {
 		initialBackgroundColor = {0.0f, 0.0f, 0.0f, 1.0f};
 		
 		// Descriptor pool sizes
-		uniformBlocksInPool = 1 + 1 + 2 * PIECES_MODEL_PATHS.size() + 1; //global + 1 per model and 2 for pieces (tray, pieces, background)
-		texturesInPool = 2;
-		setsInPool = 1 + 1 + 2 * PIECES_MODEL_PATHS.size() + 1;
+		uniformBlocksInPool = 1 + 1 + 2 * PIECES_MODEL_PRE_INFO.size() + 1; //global + 1 per model (tray, pieces, background) and another for each piece
+		texturesInPool = 3;
+		setsInPool = 1 + 1 + 2 * PIECES_MODEL_PRE_INFO.size() + 1;
 	}
 
 	// Here you load and setup all your Vulkan objects
@@ -331,14 +385,15 @@ class MyProject : public BaseProject {
 		// Models, textures and Descriptors (values assigned to the uniforms)
 		trayTexture.init(this, TRAY_TEXTURE_PATH);
 		pieceTexture.init(this, PIECES_TEXTURE_PATH);
+		backgroundTexture.init(this, BACKGROUND_TEXTURE_PATH);
 
-		trayModelInfo = ModelInfo(this, TRAY_MODEL_PATH);
+		trayModelInfo = ModelInfo(this, TRAY_MODEL_PRE_INFO.path);
 		trayModelInfo.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
 								{1, TEXTURE, 0, &trayTexture} });
 
-		for (std::string path : PIECES_MODEL_PATHS)
+		for (modelPreInfo mpi : PIECES_MODEL_PRE_INFO)
 		{
-			PieceModelInfo mi = PieceModelInfo(this, path);
+			PieceModelInfo mi = PieceModelInfo(this, mpi.path);
 			mi.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
 									{1, TEXTURE, 0, &pieceTexture} });
 			mi.previewDS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
@@ -349,24 +404,24 @@ class MyProject : public BaseProject {
 		//background plane initialization
 		backgroundModelInfo = ModelInfo(this, planeVertices, planeIndices);
 		backgroundModelInfo.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
-									{1, TEXTURE, 0, &pieceTexture} });
-		backgroundModelInfo.position = glm::vec3(0.0f, -1.0f, 0.0f);
-		backgroundModelInfo.color = glm::vec4(0.5f, 0.2f, 1.0f, 1.0f);
-		backgroundModelInfo.scale = glm::vec3(15.0f, 15.0f, 15.0f);
+									{1, TEXTURE, 0, &backgroundTexture} });
+		backgroundModelInfo.position = glm::vec3(0.0f, 0.0f, 0.0f);
+		backgroundModelInfo.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		backgroundModelInfo.scale =  PLANE_SCALE * glm::vec3(1.0f, 1.0f, 1.0f);
 
 
 		//container position and color initialization
-		trayModelInfo.position = glm::vec3(0.0f, 0.0f, 0.0f);
+		trayModelInfo.position = glm::vec3(0.0f, 0.0f, 0.0f) + TRAY_MODEL_PRE_INFO.offset;
 		trayModelInfo.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
 		//pieces position and color initialization
-		piecesModelInfo[0].position = glm::vec3(-3.0f, PIECES_BASE_Y, 0.0f);
-		piecesModelInfo[1].position = glm::vec3(-2.0f, PIECES_BASE_Y, 0.0f);
-		piecesModelInfo[2].position = glm::vec3(-1.0f, PIECES_BASE_Y, 0.0f);
-		piecesModelInfo[3].position = glm::vec3(0.0f, PIECES_BASE_Y, 0.0f);
-		piecesModelInfo[4].position = glm::vec3(1.0f, PIECES_BASE_Y, 0.0f);
-		piecesModelInfo[5].position = glm::vec3(2.0f, PIECES_BASE_Y, 0.0f);
-		piecesModelInfo[6].position = glm::vec3(3.0f, PIECES_BASE_Y, 0.0f);
+		piecesModelInfo[0].position = glm::vec3(-1.0f, PIECES_BASE_Y, 0.0f) + PIECES_MODEL_PRE_INFO[0].offset;
+		piecesModelInfo[1].position = glm::vec3(1.5f, PIECES_BASE_Y, -1.5f) + PIECES_MODEL_PRE_INFO[1].offset;
+		piecesModelInfo[2].position = glm::vec3(0.5f, PIECES_BASE_Y, 0.0f) + PIECES_MODEL_PRE_INFO[2].offset;
+		piecesModelInfo[3].position = glm::vec3(1.5f, PIECES_BASE_Y, 0.5f) + PIECES_MODEL_PRE_INFO[3].offset;
+		piecesModelInfo[4].position = glm::vec3(0.0f, PIECES_BASE_Y, -1.0f) + PIECES_MODEL_PRE_INFO[4].offset;
+		piecesModelInfo[5].position = glm::vec3(-1.0f, PIECES_BASE_Y, -2.0f) + PIECES_MODEL_PRE_INFO[5].offset;
+		piecesModelInfo[6].position = glm::vec3(0.0f, PIECES_BASE_Y, 1.0f) + PIECES_MODEL_PRE_INFO[6].offset;
 
 		piecesModelInfo[0].color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
 		piecesModelInfo[1].color = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
