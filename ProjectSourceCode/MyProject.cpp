@@ -1,6 +1,7 @@
 // This has been adapted from the Vulkan tutorial
 
 #include "MyProject.hpp"
+
 struct modelPreInfo {
 	std::string path;
 	glm::vec3 offset;
@@ -22,6 +23,7 @@ const std::string TRAY_TEXTURE_PATH = "textures/texture-background.jpg";
 const std::string PIECES_TEXTURE_PATH = "textures/faded-gray-wooden-textured-background.jpg";
 
 
+const float PLANE_SCALE = 15.0f;
 const std::vector<Vertex> planeVertices = {
 	{
 		glm::vec3(-1, 0, -1),
@@ -42,9 +44,55 @@ const std::vector<Vertex> planeVertices = {
 		glm::vec3(-1, 0, 1),
 		glm::vec3(0, 1, 0),
 		glm::vec2(0, 1)
-	}
+	},
+	{
+		glm::vec3(-2.6f / PLANE_SCALE, 0, -2.6f / PLANE_SCALE),
+		glm::vec3(0, 1, 0),
+		glm::vec2(0.5f - 2.6f / (PLANE_SCALE * 2.0f), 0.5f - 2.6f / (PLANE_SCALE * 2.0f))
+	},
+	{
+		glm::vec3(2.6f / PLANE_SCALE, 0, -2.6f / PLANE_SCALE),
+		glm::vec3(0, 1, 0),
+		glm::vec2(0.5f + 2.6f / (PLANE_SCALE * 2.0f), 0.5f - 2.6f / (PLANE_SCALE * 2.0f))
+	},
+	{
+		glm::vec3(2.6f / PLANE_SCALE, 0, 2.6f / PLANE_SCALE),
+		glm::vec3(0, 1, 0),
+		glm::vec2(0.5f + 2.6f / (PLANE_SCALE * 2.0f), 0.5f + 2.6f / (PLANE_SCALE * 2.0f))
+	},
+	{
+		glm::vec3(-2.6f / PLANE_SCALE, 0, 2.6f / PLANE_SCALE),
+		glm::vec3(0, 1, 0),
+		glm::vec2(0.5f - 2.6f / (PLANE_SCALE * 2.0f), 0.5f + 2.6f / (PLANE_SCALE * 2.0f))
+	},
+	{
+		glm::vec3(-2.6f / PLANE_SCALE, 0, -1),
+		glm::vec3(0, 1, 0),
+		glm::vec2(0.5f - 2.6f / (PLANE_SCALE * 2.0f), 0)
+	},
+	{
+		glm::vec3(2.6f / PLANE_SCALE, 0, -1),
+		glm::vec3(0, 1, 0),
+		glm::vec2(0.5f + 2.6f / (PLANE_SCALE * 2.0f), 0)
+	},
+	{
+		glm::vec3(2.6f / PLANE_SCALE, 0, 1),
+		glm::vec3(0, 1, 0),
+		glm::vec2(0.5f + 2.6f / (PLANE_SCALE * 2.0f), 1)
+	},
+	{
+		glm::vec3(-2.6f / PLANE_SCALE, 0, 1),
+		glm::vec3(0, 1, 0),
+		glm::vec2(0.5f - 2.6f / (PLANE_SCALE * 2.0f), 1)
+	},
 };
-const std::vector<uint32_t> planeIndices = {0, 2, 1, 0, 3, 2};
+// const std::vector<uint32_t> planeIndices = { 0, 2, 1, 0, 3, 2 };
+const std::vector<uint32_t> planeIndices = {
+	0, 11, 8, 0, 3, 11,
+	7, 10, 6, 7, 11, 10,
+	8, 5, 9, 8, 4, 5,
+	9, 2, 1, 9, 10, 2
+};
 
 
 const float PIECES_BASE_Y = 0.125f;
@@ -354,9 +402,9 @@ class MyProject : public BaseProject {
 		backgroundModelInfo = ModelInfo(this, planeVertices, planeIndices);
 		backgroundModelInfo.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
 									{1, TEXTURE, 0, &pieceTexture} });
-		backgroundModelInfo.position = glm::vec3(0.0f, -1.0f, 0.0f);
+		backgroundModelInfo.position = glm::vec3(0.0f, 0.0f, 0.0f);
 		backgroundModelInfo.color = glm::vec4(0.5f, 0.2f, 1.0f, 1.0f);
-		backgroundModelInfo.scale =  15.0f * glm::vec3(1.0f, 1.0f, 1.0f);
+		backgroundModelInfo.scale =  PLANE_SCALE * glm::vec3(1.0f, 1.0f, 1.0f);
 
 
 		//container position and color initialization
