@@ -80,7 +80,8 @@ struct globalUniformBufferObject {
 	alignas(16) glm::mat4 view;
 	alignas(16) glm::mat4 proj;
 	alignas(16) glm::vec3 lightPos;
-	alignas(16) glm::vec2 paramDecay;
+	alignas(16) glm::vec3 eyePos;
+	alignas(16) glm::vec4 paramDecay;
 };
 
 struct UniformBufferObject {
@@ -462,8 +463,9 @@ class MyProject : public BaseProject {
 			swapChainExtent.width / (float)swapChainExtent.height,
 			0.1f, 10.0f);
 		gubo.proj[1][1] *= -1;
-		gubo.lightPos = glm::vec3(0.0f, 8.0f, 0.0f);
-		gubo.paramDecay = glm::vec2(2.0f, 0.2f);
+		gubo.eyePos = glm::vec3(0.0f, 8.0f, 0.0f);
+		gubo.lightPos = glm::vec3(0.0f, 5.0f, 0.0f);
+		gubo.paramDecay = glm::vec4(8.0f, 1.0f, 0.4f, 0.3f); //g, decay, Cin, Cout
 		
 		vkMapMemory(device, globalDS.uniformBuffersMemory[0][currentImage], 0,
 			sizeof(gubo), 0, &data);

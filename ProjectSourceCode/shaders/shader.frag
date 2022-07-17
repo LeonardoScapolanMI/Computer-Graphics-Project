@@ -6,7 +6,8 @@ layout(set = 0, binding = 0) uniform globalUniformBufferObject {
 	mat4 view;
 	mat4 proj;
 	vec3 lightpos;
-	vec2 paramDecay;
+	vec3 eyePos;
+	vec4 paramDecay;
 } gubo;
 
 layout(set = 1, binding = 0) uniform UniformBufferObject {
@@ -32,35 +33,51 @@ void main() {
 
 	vec3 lightColor = vec3(1.0f, 0.9f, 0.9f);
 	const vec3  specColor = vec3(1.0f, 0.8f, 0.8f);
-	const float specPower = 100.0f;
+	const float specPower = 64.0f;
 	vec3 lD = vec3(-0.4830f, 0.8365f, -0.2588f); //light direction
-	vec3 lC = vec3(1.0f, 1.0f, 1.0f);
+	//vec3 lC = vec3(1.0f, 1.0f, 1.0f);
 
-	if(ubo.selected > 0) {
+	//if(ubo.selected > 0) {
 	//Point Light Direction
 	lD = (gubo.lightpos - fragViewDir) / length(gubo.lightpos - fragViewDir);
 
 	//Point Light color
 	float x = gubo.paramDecay.x / length(gubo.lightpos - fragViewDir);
-	lC = (pow(x, gubo.paramDecay.y))*lightColor;
+	vec3 lC = (pow(x, gubo.paramDecay.y))*lightColor;
 	
+	//}
+
+	vec3 spot_light_dir(vec3 pos) {
+	// Spot light direction
+	return (gubo.lightpos - fragViewDir)/(length(gubo.lightPos - fragViewDir));
 	}
+
+	vec3 spot_light_color(vec3 pos) {
+	float x = gubo.paramDecay.x / length(gubo.lightpos - fragViewDir);
+	vec3 y = gubo.lightColor*(pow(x, paramDecay.y));
+
+	vec3 light_direction = (gubo.lightpos - fragViewDir)/(length(gubo.lightpos - fragViewDir));
+	float z = clamp((light_direction - gubo.coneInOutDecayExp.x)/(gubo.coneInOutDecayExp.y - gubo.coneInOutDecayExp.x), 0, 1);
+	vec3 result = y*z;
+	return result;
+
+	}	
 
 	vec3 N = normalize(fragNorm);
 	vec3 R = -reflect(lD, N);
 	vec3 V = normalize(fragViewDir);
+	vec3 EyeDir = normalize(gubo.eyePos.xyz - fragViewDir);
 	
 	// Lambert diffuse
 	vec3 diffuse  = diffColor * max(dot(N,lD), 0.0f);
 	// Phong specular
-	vec3 specular = specColor * pow(max(dot(R,V), 0.0f), specPower);
+	vec3 specular = specColor * pow(max(dot(EyeDir, R), 0.0f), specPower);
 	// Hemispheric ambient
 	//vec3 ambient  = (vec3(0.1f,0.1f, 0.1f) * (1.0f + N.y) + vec3(0.0f,0.0f, 0.1f) * (1.0f - N.y)) * diffColor;
-	vec3 ambient  = (vec3(0.1f,0.1f, 0.1f) * (1.0f + N.y) + vec3(0.4f,0.4f, 0.4f) * (1.0f - N.y)) * diffColor;
+	//vec3 ambient  = (vec3(0.1f,0.1f, 0.1f) * (1.0f + N.y) + vec3(0.4f,0.4f, 0.4f) * (1.0f - N.y)) * diffColor;
 
-
-	if(ubo.selected > 0)
-		outColor = vec4(clamp((ambient + diffuse + specular)*lC, vec3(0.0f), vec3(1.0f)), alpha);
-	else
-		outColor = vec4(clamp(ambient + diffuse + specular, vec3(0.0f), vec3(1.0f)), alpha);
+	//if(ubo.selected > 0)
+		outColor = vec4(clamp((diffuse + specular)*lC, vec3(0.0f), vec3(1.0f)), alpha);
+	//else
+	//	outColor = vec4(clamp(diffuse + specular, vec3(0.0f), vec3(1.0f)), alpha);
 }
