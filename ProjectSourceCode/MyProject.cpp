@@ -320,7 +320,7 @@ class MyProject : public BaseProject {
 	SelectionState nextSelectionMode = SelectionState::SELECTION_MODE;
 
 	glm::vec3 cameraPos = glm::vec3(0.0f, 8.0f, 0.0f);
-	glm::vec3 cameraYPR = glm::vec3(0.0f, -90.0f, 180.0f);
+	glm::vec3 cameraYPR = glm::vec3(0.0f, -90.0f, 0.0f);
 
 	protected:
 	// Here you list all the Vulkan objects you need:
@@ -558,19 +558,19 @@ class MyProject : public BaseProject {
 
 		float angleMin;
 		float angleMax;
-		if (key == GLFW_KEY_A && action == GLFW_RELEASE) {
+		if (key == GLFW_KEY_D && action == GLFW_RELEASE) {
 			angleMin = glm::radians(-45.0f);
 			angleMax = glm::radians(45.0f);
 		}
-		else if (key == GLFW_KEY_W && action == GLFW_RELEASE) {
+		else if (key == GLFW_KEY_S && action == GLFW_RELEASE) {
 			angleMin = glm::radians(45.0f);
 			angleMax = glm::radians(135.0f);
 		}
-		else if (key == GLFW_KEY_D && action == GLFW_RELEASE) {
+		else if (key == GLFW_KEY_A && action == GLFW_RELEASE) {
 			angleMin = glm::radians(135.0f);
 			angleMax = glm::radians(-135.0f);
 		}
-		else if (key == GLFW_KEY_S && action == GLFW_RELEASE) {
+		else if (key == GLFW_KEY_W && action == GLFW_RELEASE) {
 			angleMin = glm::radians(-135.0f);
 			angleMax = glm::radians(-45.0f);
 		}
@@ -677,9 +677,13 @@ class MyProject : public BaseProject {
 			mov.z += 1;
 		}
 
-		cameraPos += glm::vec3(glm::rotate(glm::mat4(1.0), -glm::radians(cameraYPR.z), glm::vec3(0, 0, 1))
+		glm::vec3 translation = glm::vec3(glm::rotate(glm::mat4(1.0), -glm::radians(cameraYPR.z), glm::vec3(0, 0, 1))
 			* glm::rotate(glm::mat4(1.0), -glm::radians(cameraYPR.y), glm::vec3(1, 0, 0))
 			* glm::rotate(glm::mat4(1.0), -glm::radians(cameraYPR.x), glm::vec3(0, 1, 0)) * linearSpeed * deltaTime * glm::vec4(mov, 0));
+
+		translation.z *= -1;
+
+		cameraPos += translation;
 
 		/*viewMatrix = glm::translate(glm::mat4(1.0), linearSpeed * deltaTime * (-mov))
 			// * glm::rotate(glm::mat4(1.0), angularSpeed * deltaTime * rot.z, glm::vec3(0, 0, 1))
@@ -721,7 +725,7 @@ class MyProject : public BaseProject {
 			rot += 1;
 		}
 
-		piecesModelInfo[selectedPieceIndex].position += linearSpeed * deltaTime * mov;
+		piecesModelInfo[selectedPieceIndex].position += linearSpeed * deltaTime * (-mov);
 		piecesModelInfo[selectedPieceIndex].eulerRotation.x += angularSpeed * deltaTime * rot;
 	}
 
