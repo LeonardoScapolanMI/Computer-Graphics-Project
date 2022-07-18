@@ -8,6 +8,7 @@ layout(set = 0, binding = 0) uniform globalUniformBufferObject {
 	vec3 lightpos;
 	vec3 eyePos;
 	vec4 paramDecay;
+	vec3 spotlight_pos;
 } gubo;
 
 layout(set = 1, binding = 0) uniform UniformBufferObject {
@@ -24,7 +25,6 @@ layout(location = 2) in vec2 fragTexCoord;
 layout(location = 0) out vec4 outColor;
 
 void main() {
-	const float alpha = ubo.color.a;
 	vec3  diffColor = texture(texSampler, fragTexCoord).rgb * ubo.color.rgb;
 
 	/*
@@ -34,12 +34,12 @@ void main() {
 	}
 	*/
 
-	vec3 lightColor = vec3(0.4f, 0.4f, 0.4f);
-	vec3 lightColor_Spot = vec3(0.9f, 0.9f, 0.9f);
-	vec3 lightPos_Spot = vec3(0.0f, 8.0f, 0.0f);
+	// vec3 lightColor = vec3(0.4f, 0.4f, 0.4f);
+	vec3 lightColor_Spot = vec3(1.0f, 1.0f, 1.0f);
+	vec3 lightPos_Spot = gubo.spotlight_pos;
 	const vec3  specColor = vec3(1.0f, 0.8f, 0.8f);
 	const float specPower = 64.0f;
-	vec3 lDGeneral = vec3(0.5f, 0.5f, 0.5f); //light direction
+	vec3 lDGeneral = normalize(vec3(0.0f, -1.0f, 0.0f)); //light direction
 	//vec3 lC = vec3(1.0f, 1.0f, 1.0f);
 
 	vec3 lD = lDGeneral;
@@ -47,14 +47,14 @@ void main() {
 	float x = gubo.paramDecay.x / length(gubo.lightpos - fragViewDir);
 	//vec3 lC = (pow(x, gubo.paramDecay.y))*lightColor;
 
-	if(ubo.selected > 0) {
+	// if(ubo.selected > 0) {
 	vec3 y = lightColor_Spot*(pow(x, gubo.paramDecay.y));
 
-	vec3 light_direction = (lightPos_Spot - fragViewDir)/(length(lightPos_Spot - fragViewDir));
+	vec3 light_direction = vec3(0, 1, 0);// (lightPos_Spot - fragViewDir)/(length(lightPos_Spot - fragViewDir));
 	lD = light_direction;
 	float z = clamp((dot(light_direction, lDGeneral) - gubo.paramDecay.w)/(gubo.paramDecay.z - gubo.paramDecay.w), 0, 1);
 	lightColor = y*z;
-	}	
+	// }	
 
 	vec3 N = normalize(fragNorm);
 	vec3 R = -reflect(lD, N);
@@ -68,7 +68,7 @@ void main() {
 	// Hemispheric ambient
 	//vec3 ambient  = (vec3(0.1f,0.1f, 0.1f) * (1.0f + N.y) + vec3(0.4f,0.4f, 0.4f) * (1.0f - N.y)) * diffColor;
 
-	outColor = vec4(clamp((diffuse + specular)*lightColor, vec3(0.0f), vec3(1.0f)), alpha);
+	outColor = vec4(clamp((diffuse + specular)*lightColor, vec3(0.0f), vec3(1.0f)), ubo.color.a);
 	//else
 	//	outColor = vec4(clamp(diffuse + specular, vec3(0.0f), vec3(1.0f)), alpha);
 }
