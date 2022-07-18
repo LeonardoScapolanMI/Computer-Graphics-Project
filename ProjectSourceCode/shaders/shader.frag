@@ -34,27 +34,19 @@ void main() {
 	}
 	*/
 
-	// vec3 lightColor = vec3(0.4f, 0.4f, 0.4f);
 	vec3 lightColor_Spot = vec3(1.0f, 1.0f, 1.0f);
 	vec3 lightPos_Spot = gubo.spotlight_pos;
+	vec3 direction_Spot = - normalize(vec3(0.0f, -1.0f, 0.0f));
+
 	const vec3  specColor = vec3(1.0f, 0.8f, 0.8f);
 	const float specPower = 64.0f;
-	vec3 lDGeneral = normalize(vec3(0.0f, -1.0f, 0.0f)); //light direction
-	//vec3 lC = vec3(1.0f, 1.0f, 1.0f);
 
-	vec3 lD = lDGeneral;
 
-	float x = gubo.paramDecay.x / length(gubo.lightpos - fragViewDir);
-	//vec3 lC = (pow(x, gubo.paramDecay.y))*lightColor;
+	vec3 lD = normalize(lightPos_Spot - fragViewDir); //light direction
 
-	// if(ubo.selected > 0) {
-	vec3 y = lightColor_Spot*(pow(x, gubo.paramDecay.y));
-
-	vec3 light_direction = vec3(0, 1, 0);// (lightPos_Spot - fragViewDir)/(length(lightPos_Spot - fragViewDir));
-	lD = light_direction;
-	float z = clamp((dot(light_direction, lDGeneral) - gubo.paramDecay.w)/(gubo.paramDecay.z - gubo.paramDecay.w), 0, 1);
-	lightColor = y*z;
-	// }	
+	float decay = pow(gubo.paramDecay.x / length(lightPos_Spot - fragViewDir), gubo.paramDecay.y);
+	float spotlightConeFactor = clamp((dot(direction_Spot, lD) - gubo.paramDecay.w)/(gubo.paramDecay.z - gubo.paramDecay.w), 0, 1);
+	vec3 lightColor = lightColor_Spot * decay * spotlightConeFactor;
 
 	vec3 N = normalize(fragNorm);
 	vec3 R = -reflect(lD, N);
@@ -64,11 +56,9 @@ void main() {
 	// Lambert diffuse
 	vec3 diffuse  = diffColor * max(dot(N,lD), 0.0f);
 	// Phong specular
-	vec3 specular = specColor * pow(max(dot(EyeDir, R), 0.0f), specPower);
+	vec3 specular = vec3(0); //specColor * pow(max(dot(EyeDir, R), 0.0f), specPower);
 	// Hemispheric ambient
 	//vec3 ambient  = (vec3(0.1f,0.1f, 0.1f) * (1.0f + N.y) + vec3(0.4f,0.4f, 0.4f) * (1.0f - N.y)) * diffColor;
 
 	outColor = vec4(clamp((diffuse + specular)*lightColor, vec3(0.0f), vec3(1.0f)), ubo.color.a);
-	//else
-	//	outColor = vec4(clamp(diffuse + specular, vec3(0.0f), vec3(1.0f)), alpha);
 }

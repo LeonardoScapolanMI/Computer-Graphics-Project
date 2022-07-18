@@ -21,7 +21,7 @@ layout(location = 2) out vec2 fragTexCoord;
 
 void main() {
 	gl_Position = gubo.proj * gubo.view * ubo.model * vec4(pos, 1.0);
-	fragViewDir  = (gubo.view[3]).xyz - (ubo.model * vec4(pos,  1.0)).xyz;
+	fragViewDir  = (ubo.model * vec4(pos,  1.0)).xyz;
 	fragNorm     = (ubo.model * vec4(norm, 0.0)).xyz;
 	fragTexCoord = texCoord;
 }

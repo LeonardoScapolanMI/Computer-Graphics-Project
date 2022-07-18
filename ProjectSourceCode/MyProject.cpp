@@ -531,7 +531,7 @@ class MyProject : public BaseProject {
 		gubo.proj[1][1] *= -1;
 		gubo.eyePos = cameraPos;
 		gubo.lightPos = glm::vec3(0.0f, 5.0f, 0.0f);
-		gubo.paramDecay = glm::vec4(8.0f, 1.0f, 0.1f, 0.12f); //g, decay, Cin, Cout
+		gubo.paramDecay = glm::vec4(8.0f, 1.0f, 0.85f, 0.8f); //g, decay, Cin, Cout
 		gubo.spotlight_pos = glm::vec3(piecesModelInfo[selectedPieceIndex].position.x, 5.0f, piecesModelInfo[selectedPieceIndex].position.z);
 		
 		vkMapMemory(device, globalDS.uniformBuffersMemory[0][currentImage], 0,
