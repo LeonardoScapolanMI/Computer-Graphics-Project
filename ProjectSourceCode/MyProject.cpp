@@ -22,6 +22,7 @@ const std::vector<modelPreInfo> PIECES_MODEL_PRE_INFO = {
 const std::string TRAY_TEXTURE_PATH = "textures/texture-background.jpg";
 const std::string PIECES_TEXTURE_PATH = "textures/faded-gray-wooden-textured-background.jpg";
 const std::string BACKGROUND_TEXTURE_PATH = "textures/background-plane.jpg";
+const std::string WHITE_TEXTURE_PATH = "textures/white.png";
 
 const float PLANE_SCALE = 15.0f;
 const std::vector<Vertex> planeVertices = {
