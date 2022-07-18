@@ -2,21 +2,22 @@
 
 #include "MyProject.hpp"
 
-struct modelPreInfo {
+struct ModelPreInfo {
 	std::string path;
 	glm::vec3 offset;
+	glm::vec3 baricenterOffset;
 };
 
 
-const modelPreInfo TRAY_MODEL_PRE_INFO = { "models/tray.obj", glm::vec3(-2 - -2.001980, 0 - -0.030329, -2 - -2.116832)};
-const std::vector<modelPreInfo> PIECES_MODEL_PRE_INFO = {
-	{"models/piece1.obj", glm::vec3(0, -0.125 - 0.112829, 0)},
-	{"models/piece2.obj", glm::vec3(-1.5 - -1.454270, 0, -0.5 - -0.545730)},
-	{"models/piece3.obj", glm::vec3(0.5 - 0.454155, 0, 0)},
-	{"models/piece4.obj", glm::vec3(0.5 - 0.570166, 0, 0.5 - 0.429094)},
-	{"models/piece5.obj", glm::vec3(0 - -0.003173, 0, 0)},
-	{"models/piece6.obj", glm::vec3(0, 0.125 - 0.131214, 1 - 0.623514)},
-	{"models/piece7.obj", glm::vec3(0, 0, -1 - -1.091299)}
+const ModelPreInfo TRAY_MODEL_PRE_INFO = { "models/tray.obj", glm::vec3(-2 - -2.001980, 0 - -0.030329, -2 - -2.116832), glm::vec3(0)};
+const std::vector<ModelPreInfo> PIECES_MODEL_PRE_INFO = {
+	{"models/piece1.obj", glm::vec3(0, -0.125 - 0.112829, 0), glm::vec3(-1.0f/3.0f, 0, 0)},
+	{"models/piece2.obj", glm::vec3(-1.5 - -1.454270, 0, -0.5 - -0.545730), glm::vec3(-0.5f / 3.0f, 0, 0.5f / 3.0f)},
+	{"models/piece3.obj", glm::vec3(0.5 - 0.454155, 0, 0), glm::vec3(0.5f / 3.0f, 0, 0)},
+	{"models/piece4.obj", glm::vec3(0.5 - 0.570166, 0, 0.5 - 0.429094), glm::vec3(0)},
+	{"models/piece5.obj", glm::vec3(0 - -0.003173, 0, 0), glm::vec3(0)},
+	{"models/piece6.obj", glm::vec3(0, 0.125 - 0.131214, 1 - 0.623514), glm::vec3(0, 0, 1.0f / 3.0f)},
+	{"models/piece7.obj", glm::vec3(0, 0, -1 - -1.091299), glm::vec3(0, 0, 1.0f / 3.0f)}
 };
 
 const std::string TRAY_TEXTURE_PATH = "textures/texture-background.jpg";
@@ -157,25 +158,32 @@ public:
 	glm::vec3 eulerRotation;
 	glm::vec3 scale;
 	glm::vec4 color;
+	glm::vec3 offset;
+	glm::vec3 baricenterOffset;
 
 	ModelInfo() {
 		position = position = glm::vec3(0.0f, 0.0f, 0.0f);
 		eulerRotation = glm::vec3(0.0f, 0.0f, 0.0f);
 		scale = glm::vec3(1.0f, 1.0f, 1.0f);
 		color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		offset = glm::vec3(0.0f, 0.0f, 0.0f);
+		baricenterOffset = glm::vec3(0.0f, 0.0f, 0.0f);
 	}
 
-	ModelInfo(BaseProject* pj, std::string path) {
-		this->path = path;
+	ModelInfo(BaseProject* pj, ModelPreInfo mpi) {
+		this->path = mpi.path;
 		model.init(pj, path);
 
 		position = glm::vec3(0.0f, 0.0f, 0.0f);
 		eulerRotation = glm::vec3(0.0f, 0.0f, 0.0f);
 		scale = glm::vec3(1.0f, 1.0f, 1.0f);
 		color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+
+		offset = mpi.offset;
+		baricenterOffset = mpi.baricenterOffset;
 	}
 
-	ModelInfo(BaseProject* pj, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) {
+	ModelInfo(BaseProject* pj, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices, glm::vec3 baricenterOff = glm::vec3(0.0f, 0.0f, 0.0f)) {
 		model.BP = pj;
 		model.vertices = vertices;
 		model.indices = indices;
@@ -186,10 +194,17 @@ public:
 		eulerRotation = glm::vec3(0.0f, 0.0f, 0.0f);
 		scale = glm::vec3(1.0f, 1.0f, 1.0f);
 		color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+
+		offset = glm::vec3(0.0f, 0.0f, 0.0f);
+		baricenterOffset = baricenterOff;
 	}
 
 	const Model& getModel() {
 		return model;
+	}
+
+	glm::vec3 baricenterPosition() {
+		return position + baricenterOffset;
 	}
 
 	const void drawModel(Pipeline P, VkCommandBuffer commandBuffer, int currentImage){
@@ -246,12 +261,12 @@ public:
 		selected = false;
 	}
 
-	PieceModelInfo(BaseProject* pj, std::string path) : ModelInfo(pj, path) {
+	PieceModelInfo(BaseProject* pj, ModelPreInfo mpi) : ModelInfo(pj, mpi) {
 		selected = false;
 	}
 
-	PieceModelInfo(BaseProject* pj, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) :
-		ModelInfo(pj, vertices, indices) {
+	PieceModelInfo(BaseProject* pj, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices, glm::vec3 baricenterOff = glm::vec3(0.0f, 0.0f, 0.0f)) :
+		ModelInfo(pj, vertices, indices, baricenterOff) {
 		selected = false;
 	}
 
@@ -389,13 +404,13 @@ class MyProject : public BaseProject {
 		pieceTexture.init(this, PIECES_TEXTURE_PATH);
 		backgroundTexture.init(this, BACKGROUND_TEXTURE_PATH);
 
-		trayModelInfo = ModelInfo(this, TRAY_MODEL_PRE_INFO.path);
+		trayModelInfo = ModelInfo(this, TRAY_MODEL_PRE_INFO);
 		trayModelInfo.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
 								{1, TEXTURE, 0, &trayTexture} });
 
-		for (modelPreInfo mpi : PIECES_MODEL_PRE_INFO)
+		for (ModelPreInfo mpi : PIECES_MODEL_PRE_INFO)
 		{
-			PieceModelInfo mi = PieceModelInfo(this, mpi.path);
+			PieceModelInfo mi = PieceModelInfo(this, mpi);
 			mi.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
 									{1, TEXTURE, 0, &pieceTexture} });
 			mi.previewDS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
@@ -533,7 +548,9 @@ class MyProject : public BaseProject {
 		gubo.eyePos = cameraPos;
 		gubo.lightPos = glm::vec3(0.0f, 5.0f, 0.0f);
 		gubo.paramDecay = glm::vec4(8.0f, 1.0f, 0.85f, 0.8f); //g, decay, Cin, Cout
-		gubo.spotlight_pos = glm::vec3(piecesModelInfo[selectedPieceIndex].position.x, 5.0f, piecesModelInfo[selectedPieceIndex].position.z);
+
+		glm::vec3 selectedPieceBaricenterPosition = piecesModelInfo[selectedPieceIndex].baricenterPosition();
+		gubo.spotlight_pos = glm::vec3(selectedPieceBaricenterPosition.x, 5.0f, selectedPieceBaricenterPosition.z);
 		
 		vkMapMemory(device, globalDS.uniformBuffersMemory[0][currentImage], 0,
 			sizeof(gubo), 0, &data);
