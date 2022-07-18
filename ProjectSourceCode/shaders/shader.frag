@@ -5,7 +5,8 @@ layout(set = 1, binding = 1) uniform sampler2D texSampler;
 layout(set = 0, binding = 0) uniform globalUniformBufferObject {
 	mat4 view;
 	mat4 proj;
-	vec3 lightpos;
+	vec3 ambientLight;
+	vec3 ambientLightDirection;
 	vec3 eyePos;
 	vec4 paramDecay;
 	vec3 spotlight_pos;
@@ -38,15 +39,15 @@ void main() {
 	vec3 lightPos_Spot = gubo.spotlight_pos;
 	vec3 direction_Spot = - normalize(vec3(0.0f, -1.0f, 0.0f));
 
-	const vec3  specColor = vec3(1.0f, 0.8f, 0.8f);
-	const float specPower = 64.0f;
+	const vec3  specColor = vec3(0.8f, 0.8f, 0.8f);
+	const float specPower = 32.0f;
 
 
 	vec3 lD = normalize(lightPos_Spot - fragViewDir); //light direction
 
 	float decay = pow(gubo.paramDecay.x / length(lightPos_Spot - fragViewDir), gubo.paramDecay.y);
 	float spotlightConeFactor = clamp((dot(direction_Spot, lD) - gubo.paramDecay.w)/(gubo.paramDecay.z - gubo.paramDecay.w), 0, 1);
-	vec3 lightColor = lightColor_Spot * decay * spotlightConeFactor;
+	vec3 lightColor = (lightColor_Spot * decay * spotlightConeFactor) + gubo.ambientLight;
 
 	vec3 N = normalize(fragNorm);
 	vec3 R = -reflect(lD, N);
@@ -58,7 +59,7 @@ void main() {
 	// Phong specular
 	vec3 specular = vec3(0); //specColor * pow(max(dot(EyeDir, R), 0.0f), specPower);
 	// Hemispheric ambient
-	//vec3 ambient  = (vec3(0.1f,0.1f, 0.1f) * (1.0f + N.y) + vec3(0.4f,0.4f, 0.4f) * (1.0f - N.y)) * diffColor;
+	vec3 ambient  = (vec3(0.1f,0.1f, 0.1f) * (1.0f + N.y) + vec3(0.3f,0.3f,0.3f) * (1.0f - N.y)) * diffColor;
 
-	outColor = vec4(clamp((diffuse + specular)*lightColor, vec3(0.0f), vec3(1.0f)), ubo.color.a);
+	outColor = vec4(clamp((diffuse + specular + ambient)*lightColor, vec3(0.0f), vec3(1.0f)), ubo.color.a);
 }

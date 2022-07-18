@@ -130,7 +130,8 @@ glm::mat4 MakeWorldMatrixEuler(glm::vec3 pos, glm::vec3 YPR, glm::vec3 size) {
 struct globalUniformBufferObject {
 	alignas(16) glm::mat4 view;
 	alignas(16) glm::mat4 proj;
-	alignas(16) glm::vec3 lightPos;
+	alignas(16) glm::vec3 ambientLight;
+	alignas(16) glm::vec3 ambientLightDirection;
 	alignas(16) glm::vec3 eyePos;
 	alignas(16) glm::vec4 paramDecay;
 	alignas(16) glm::vec3 spotlight_pos;
@@ -530,8 +531,9 @@ class MyProject : public BaseProject {
 			0.1f, 100.0f);
 		gubo.proj[1][1] *= -1;
 		gubo.eyePos = cameraPos;
-		gubo.lightPos = glm::vec3(0.0f, 5.0f, 0.0f);
-		gubo.paramDecay = glm::vec4(8.0f, 1.0f, 0.85f, 0.8f); //g, decay, Cin, Cout
+		gubo.ambientLight = glm::vec3(0.3f, 0.3f, 0.3f);
+		gubo.ambientLightDirection = glm::vec3(0.0f, -1.0f, 0.0f);
+		gubo.paramDecay = glm::vec4(8.0f, 1.0f, 0.98f, 0.95f); //g, decay, Cin, Cout
 		gubo.spotlight_pos = glm::vec3(piecesModelInfo[selectedPieceIndex].position.x, 5.0f, piecesModelInfo[selectedPieceIndex].position.z);
 		
 		vkMapMemory(device, globalDS.uniformBuffersMemory[0][currentImage], 0,
