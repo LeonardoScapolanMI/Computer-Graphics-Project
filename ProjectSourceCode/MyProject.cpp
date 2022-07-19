@@ -8,6 +8,12 @@ struct ModelPreInfo {
 	glm::vec3 baricenterOffset;
 };
 
+struct CompositionStructure {
+	glm::vec3 rotation;
+	glm::vec3 position;
+	glm::vec3 scale;
+};
+
 
 const ModelPreInfo TRAY_MODEL_PRE_INFO = { "models/tray.obj", glm::vec3(-2 - -2.001980, 0 - -0.030329, -2 - -2.116832), glm::vec3(0)};
 const std::vector<ModelPreInfo> PIECES_MODEL_PRE_INFO = {
@@ -105,6 +111,8 @@ const float NEAR_PLANE = 0.1f;
 
 const float PIECES_BASE_Y = 0.125f;
 const float PIECES_ELEVATED_Y = 2 + PIECES_BASE_Y;
+const float OFFSET_COMPOSITION_X = 5.0f;
+const float OFFSET_COMPOSITION_Z = 5.0f;
 
 
 // function to make a look in view matrix starting from the camera position and it's rotation (angles in degrees)
@@ -176,6 +184,7 @@ public:
 	glm::vec4 color;
 	glm::vec3 offset;
 	glm::vec3 baricenterOffset;
+	CompositionStructure comParameter;
 
 	ModelInfo() {
 		position = position = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -184,6 +193,9 @@ public:
 		color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 		offset = glm::vec3(0.0f, 0.0f, 0.0f);
 		baricenterOffset = glm::vec3(0.0f, 0.0f, 0.0f);
+		comParameter.rotation = glm::vec3(0.0f, 0.0f, 0.0f);
+		comParameter.position = glm::vec3(0.0f, 0.0f, 0.0f);
+		comParameter.scale = glm::vec3(1.0f, 1.0f, 1.0f);
 	}
 
 	ModelInfo(BaseProject* pj, ModelPreInfo mpi) {
@@ -511,6 +523,35 @@ class MyProject : public BaseProject {
 		trayModelInfo.position = glm::vec3(0.0f, 0.0f, 0.0f);
 		trayModelInfo.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
+		//pieces compositions rotation, position, color, inizialization
+		piecesWireframeModelInfo[0].comParameter.rotation = glm::vec3(180.0f, 0.0f, 0.0f);
+		piecesWireframeModelInfo[0].comParameter.position = glm::vec3(1.0 + OFFSET_COMPOSITION_X, PIECES_BASE_Y, 0.0 + OFFSET_COMPOSITION_Z);
+		piecesWireframeModelInfo[0].comParameter.scale = glm::vec3(1.0, 1.0, 1.0);
+
+		piecesWireframeModelInfo[1].comParameter.rotation = glm::vec3(90.0f, 0.0f, 0.0f);
+		piecesWireframeModelInfo[1].comParameter.position = glm::vec3(0.5 + OFFSET_COMPOSITION_X, PIECES_BASE_Y, -1.5 + OFFSET_COMPOSITION_Z);
+		piecesWireframeModelInfo[1].comParameter.scale = glm::vec3(1.0, 1.0, 1.0);
+
+		piecesWireframeModelInfo[2].comParameter.rotation = glm::vec3(-90.0f, 0.0f, 0.0f);
+		piecesWireframeModelInfo[2].comParameter.position = glm::vec3(1.0 + OFFSET_COMPOSITION_X, PIECES_BASE_Y, -3.85 + OFFSET_COMPOSITION_Z);
+		piecesWireframeModelInfo[2].comParameter.scale = glm::vec3(1.0, 1.0, 1.0);
+
+		piecesWireframeModelInfo[3].comParameter.rotation = glm::vec3(90.0f, 0.0f, 0.0f);
+		piecesWireframeModelInfo[3].comParameter.position = glm::vec3(-1.0 + OFFSET_COMPOSITION_X, PIECES_BASE_Y, -0.5 + OFFSET_COMPOSITION_Z);
+		piecesWireframeModelInfo[3].comParameter.scale = glm::vec3(-1.0, -1.0, -1.0);
+
+		piecesWireframeModelInfo[4].comParameter.rotation = glm::vec3(45.0f, 0.0f, 0.0f);
+		piecesWireframeModelInfo[4].comParameter.position = glm::vec3(1.0 + OFFSET_COMPOSITION_X, PIECES_BASE_Y, -2.7 + OFFSET_COMPOSITION_Z);
+		piecesWireframeModelInfo[4].comParameter.scale = glm::vec3(1.0, 1.0, 1.0);
+
+		piecesWireframeModelInfo[5].comParameter.rotation = glm::vec3(30.0f, 0.0f, 0.0f);
+		piecesWireframeModelInfo[5].comParameter.position = glm::vec3(-1.0 + OFFSET_COMPOSITION_X, PIECES_BASE_Y, 0.0 + OFFSET_COMPOSITION_Z);
+		piecesWireframeModelInfo[5].comParameter.scale = glm::vec3(1.0, 1.0, 1.0);
+
+		piecesWireframeModelInfo[6].comParameter.rotation = glm::vec3(0.0f, 0.0f, 0.0f);
+		piecesWireframeModelInfo[6].comParameter.position = glm::vec3(0.0 + OFFSET_COMPOSITION_X, PIECES_BASE_Y, 1.0 + OFFSET_COMPOSITION_Z);
+		piecesWireframeModelInfo[6].comParameter.scale = glm::vec3(1.0, 1.0, 1.0);
+
 		//pieces position and color initialization
 		piecesModelInfo[0].position = glm::vec3(-1.0f, PIECES_BASE_Y, 0.0f);
 		piecesModelInfo[1].position = glm::vec3(1.5f, PIECES_BASE_Y, -1.5f);
@@ -520,13 +561,32 @@ class MyProject : public BaseProject {
 		piecesModelInfo[5].position = glm::vec3(-1.0f, PIECES_BASE_Y, -2.0f);
 		piecesModelInfo[6].position = glm::vec3(0.0f, PIECES_BASE_Y, 1.0f);
 
-		piecesWireframeModelInfo[0].position = glm::vec3(-3.0f, PIECES_BASE_Y, 0.0f);
-		piecesWireframeModelInfo[1].position = glm::vec3(3.5f, PIECES_BASE_Y, -3.5f);
-		piecesWireframeModelInfo[2].position = glm::vec3(3.5f, PIECES_BASE_Y, 0.0f);
-		piecesWireframeModelInfo[3].position = glm::vec3(3.5f, PIECES_BASE_Y, 3.5f);
-		piecesWireframeModelInfo[4].position = glm::vec3(3.0f, PIECES_BASE_Y, -3.0f);
-		piecesWireframeModelInfo[5].position = glm::vec3(-3.0f, PIECES_BASE_Y, -6.0f);
-		piecesWireframeModelInfo[6].position = glm::vec3(3.0f, PIECES_BASE_Y, 3.0f);
+		//wireframe inizialization
+
+		piecesWireframeModelInfo[0].eulerRotation = piecesWireframeModelInfo[0].comParameter.rotation;
+		piecesWireframeModelInfo[1].eulerRotation = piecesWireframeModelInfo[1].comParameter.rotation;
+		piecesWireframeModelInfo[2].eulerRotation = piecesWireframeModelInfo[2].comParameter.rotation;
+		piecesWireframeModelInfo[3].eulerRotation = piecesWireframeModelInfo[3].comParameter.rotation;
+		piecesWireframeModelInfo[4].eulerRotation = piecesWireframeModelInfo[4].comParameter.rotation;
+		piecesWireframeModelInfo[5].eulerRotation = piecesWireframeModelInfo[5].comParameter.rotation;
+		piecesWireframeModelInfo[6].eulerRotation = piecesWireframeModelInfo[6].comParameter.rotation;
+		
+
+		piecesWireframeModelInfo[0].position = piecesWireframeModelInfo[0].comParameter.position;
+		piecesWireframeModelInfo[1].position = piecesWireframeModelInfo[1].comParameter.position;
+		piecesWireframeModelInfo[2].position = piecesWireframeModelInfo[2].comParameter.position;
+		piecesWireframeModelInfo[3].position = piecesWireframeModelInfo[3].comParameter.position;
+		piecesWireframeModelInfo[4].position = piecesWireframeModelInfo[4].comParameter.position;
+		piecesWireframeModelInfo[5].position = piecesWireframeModelInfo[5].comParameter.position;
+		piecesWireframeModelInfo[6].position = piecesWireframeModelInfo[6].comParameter.position;
+
+		piecesWireframeModelInfo[0].scale = piecesWireframeModelInfo[0].comParameter.scale;
+		piecesWireframeModelInfo[1].scale = piecesWireframeModelInfo[1].comParameter.scale;
+		piecesWireframeModelInfo[2].scale = piecesWireframeModelInfo[2].comParameter.scale;
+		piecesWireframeModelInfo[3].scale = piecesWireframeModelInfo[3].comParameter.scale;
+		piecesWireframeModelInfo[4].scale = piecesWireframeModelInfo[4].comParameter.scale;
+		piecesWireframeModelInfo[5].scale = piecesWireframeModelInfo[5].comParameter.scale;
+		piecesWireframeModelInfo[6].scale = piecesWireframeModelInfo[6].comParameter.scale;
 
 		/*piecesModelInfo[0].color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
 		piecesModelInfo[1].color = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
