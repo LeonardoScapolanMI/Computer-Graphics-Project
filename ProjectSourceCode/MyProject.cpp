@@ -29,7 +29,7 @@ const std::string BACKGROUND_TEXTURE_PATH = "textures/background-plane.jpg";
 const std::string WHITE_TEXTURE_PATH = "textures/white.png";
 const std::string SKTBOX_TEXTURE_PATH[6] = { "textures/sky/posx.jpg", "textures/sky/negx.jpg", "textures/sky/posy.jpg", "textures/sky/negy.jpg", "textures/sky/posz.jpg", "textures/sky/negz.jpg" };
 
-const float PLANE_SCALE = 4.0f;
+const float PLANE_SCALE = 15.0f;
 const std::vector<Vertex> planeVertices = {
 	{
 		glm::vec3(-1, 0, -1),
@@ -446,7 +446,7 @@ class MyProject : public BaseProject {
 		// be used in this pipeline. The first element will be set 0, and so on..
 		P1.init(this, "shaders/vert.spv", "shaders/frag.spv", { &DSLglobal, &DSLobj });
 		PSkyBox.init(this, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", { &DSLSkyBox }, VK_COMPARE_OP_LESS_OR_EQUAL);
-		PWireframe.init(this, "shaders/WireframeVert.spv", "shaders/WireframeFrag.spv", { &DSLWireframe }, );
+		PWireframe.init(this, "shaders/WireframeVert.spv", "shaders/WireframeFrag.spv", { &DSLglobal, &DSLWireframe }, true);
 
 		// Models, textures and Descriptors (values assigned to the uniforms)
 		trayTexture.init(this, TRAY_TEXTURE_PATH);
@@ -601,25 +601,25 @@ class MyProject : public BaseProject {
 			P1.pipelineLayout, 0, 1, &globalDS.descriptorSets[currentImage],
 			0, nullptr);
 
-		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-			PWireframe.graphicsPipeline);
-		
-		vkCmdBindDescriptorSets(commandBuffer, 
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			PWireframe.pipelineLayout, 0, 1, &globalDS.descriptorSets[currentImage],
-			0, nullptr);
 		
 		trayModelInfo.drawModel(P1, commandBuffer, currentImage, 1);
 		for (PieceModelInfo mi : piecesModelInfo)
 		{
 			mi.drawModel(P1, commandBuffer, currentImage, 1);
 		}
+		backgroundModelInfo.drawModel(P1, commandBuffer, currentImage, 1);
 
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+			PWireframe.graphicsPipeline);
+
+		vkCmdBindDescriptorSets(commandBuffer,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			PWireframe.pipelineLayout, 0, 1, &globalDS.descriptorSets[currentImage],
+			0, nullptr);
 		for (ModelInfo mi : piecesWireframeModelInfo)
 		{
 			mi.drawModel(PWireframe, commandBuffer, currentImage, 1);
 		}
-		backgroundModelInfo.drawModel(P1, commandBuffer, currentImage, 1);
 	}
 
 	// std::vector<glm::vec3> ObjsPos;
