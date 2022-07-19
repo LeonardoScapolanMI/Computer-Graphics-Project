@@ -19,13 +19,17 @@ const std::vector<ModelPreInfo> PIECES_MODEL_PRE_INFO = {
 	{"models/piece6.obj", glm::vec3(0, 0.125 - 0.131214, 1 - 0.623514), glm::vec3(0, 0, 1.0f / 3.0f)},
 	{"models/piece7.obj", glm::vec3(0, 0, -1 - -1.091299), glm::vec3(0, 0, 1.0f / 3.0f)}
 };
+const ModelPreInfo SKYBOX_MODEL_PRE_INFO = { "models/SkyBoxCube.obj", glm::vec3(0), glm::vec3(0) };
+
+
 
 const std::string TRAY_TEXTURE_PATH = "textures/texture-background.jpg";
 const std::string PIECES_TEXTURE_PATH = "textures/faded-gray-wooden-textured-background.jpg";
 const std::string BACKGROUND_TEXTURE_PATH = "textures/background-plane.jpg";
 const std::string WHITE_TEXTURE_PATH = "textures/white.png";
+const std::string SKTBOX_TEXTURE_PATH[6] = { "textures/sky/posx.jpg", "textures/sky/negx.jpg", "textures/sky/posy.jpg", "textures/sky/negy.jpg", "textures/sky/posz.jpg", "textures/sky/negz.jpg" };
 
-const float PLANE_SCALE = 15.0f;
+const float PLANE_SCALE = 4.0f;
 const std::vector<Vertex> planeVertices = {
 	{
 		glm::vec3(-1, 0, -1),
@@ -145,6 +149,10 @@ struct UniformBufferObject {
 	alignas(4) float selected;
 };
 
+struct SkyBoxUniformBufferObject {
+	alignas(16) glm::mat4 mvpMat;
+};
+
 
 
 // class containing the informations for each model
@@ -204,11 +212,12 @@ public:
 		return model;
 	}
 
+	//TODO change formula to include rotation and scaling
 	glm::vec3 baricenterPosition() {
-		return position + baricenterOffset;
+		return position + glm::vec3(MakeWorldMatrixEuler(glm::vec3(0), eulerRotation, scale) * glm::vec4(baricenterOffset, 0.0f));
 	}
 
-	const void drawModel(Pipeline P, VkCommandBuffer commandBuffer, int currentImage){
+	const void drawModel(Pipeline P, VkCommandBuffer commandBuffer, int currentImage, int DSSetIndex){
 		VkBuffer vertexBuffers[] = { model.vertexBuffer };
 		// property .vertexBuffer of models, contains the VkBuffer handle to its vertex buffer
 		VkDeviceSize offsets[] = { 0 };
@@ -221,7 +230,7 @@ public:
 		// property .descriptorSets of a descriptor set contains its elements.
 		vkCmdBindDescriptorSets(commandBuffer,
 			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			P.pipelineLayout, 1, 1, &(DS.descriptorSets[currentImage]),
+			P.pipelineLayout, DSSetIndex, 1, &(DS.descriptorSets[currentImage]),
 			0, nullptr);
 
 		// property .indices.size() of models, contains the number of triangles * 3 of the mesh.
@@ -271,12 +280,12 @@ public:
 		selected = false;
 	}
 
-	const void drawModel(Pipeline P, VkCommandBuffer commandBuffer, int currentImage) {
-		ModelInfo::drawModel(P, commandBuffer, currentImage);
+	const void drawModel(Pipeline P, VkCommandBuffer commandBuffer, int currentImage, int DSSetIndex) {
+		ModelInfo::drawModel(P, commandBuffer, currentImage, DSSetIndex);
 
 		vkCmdBindDescriptorSets(commandBuffer,
 			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			P.pipelineLayout, 1, 1, &(previewDS.descriptorSets[currentImage]),
+			P.pipelineLayout, DSSetIndex, 1, &(previewDS.descriptorSets[currentImage]),
 			0, nullptr);
 
 		vkCmdDrawIndexed(commandBuffer,
@@ -344,16 +353,21 @@ class MyProject : public BaseProject {
 	// Here you list all the Vulkan objects you need:
 	
 	// Descriptor Layouts [what will be passed to the shaders]
-		DescriptorSetLayout DSLglobal;
-		DescriptorSetLayout DSLobj;
+	DescriptorSetLayout DSLglobal;
+	DescriptorSetLayout DSLobj;
+	DescriptorSetLayout DSLSkyBox;
 
 	// Pipelines [Shader couples]
 	Pipeline P1;
+	Pipeline PSkyBox;
 
 	// Models, textures and Descriptors (values assigned to the uniforms)
 	ModelInfo trayModelInfo;
 	std::vector <PieceModelInfo> piecesModelInfo = {};
 	ModelInfo backgroundModelInfo;
+
+	ModelInfo skyBoxModelInfo;
+	CubicTexture skyBoxTexture;
 
 	Texture trayTexture;
 	Texture pieceTexture;
@@ -373,9 +387,9 @@ class MyProject : public BaseProject {
 		initialBackgroundColor = {0.0f, 0.0f, 0.0f, 1.0f};
 		
 		// Descriptor pool sizes
-		uniformBlocksInPool = 1 + 1 + 2 * PIECES_MODEL_PRE_INFO.size() + 1; //global + 1 per model (tray, pieces, background) and another for each piece
-		texturesInPool = 3;
-		setsInPool = 1 + 1 + 2 * PIECES_MODEL_PRE_INFO.size() + 1;
+		uniformBlocksInPool = 1 + 1 + 2 * PIECES_MODEL_PRE_INFO.size() + 1 + 1; //global + 1 per model (tray, pieces, background) and another for each piece + skybox
+		texturesInPool = 4;
+		setsInPool = 1 + 1 + 2 * PIECES_MODEL_PRE_INFO.size() + 1 + 1;
 	}
 
 	// Here you load and setup all your Vulkan objects
@@ -395,34 +409,49 @@ class MyProject : public BaseProject {
 					{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
 			});
 
+		DSLSkyBox.init(this, {
+					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT},
+					{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
+			});
+
 		// Pipelines [Shader couples]
 		// The last array, is a vector of pointer to the layouts of the sets that will
 		// be used in this pipeline. The first element will be set 0, and so on..
 		P1.init(this, "shaders/vert.spv", "shaders/frag.spv", { &DSLglobal, &DSLobj });
+		PSkyBox.init(this, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", { &DSLSkyBox }, VK_COMPARE_OP_LESS_OR_EQUAL);
 
 		// Models, textures and Descriptors (values assigned to the uniforms)
 		trayTexture.init(this, TRAY_TEXTURE_PATH);
 		pieceTexture.init(this, PIECES_TEXTURE_PATH);
 		backgroundTexture.init(this, BACKGROUND_TEXTURE_PATH);
+		skyBoxTexture.init(this, SKTBOX_TEXTURE_PATH);
+
+		skyBoxModelInfo = ModelInfo(this, SKYBOX_MODEL_PRE_INFO);
+		skyBoxModelInfo.DS.init(this, &DSLSkyBox, { {0, UNIFORM, sizeof(SkyBoxUniformBufferObject), nullptr, nullptr},
+								{1, CUBIC_TEXTURE, 0, nullptr, &skyBoxTexture} });
+		skyBoxModelInfo.position = glm::vec3(0.0f, 0.0f, 0.0f);
+		skyBoxModelInfo.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		skyBoxModelInfo.scale = 300.0f * glm::vec3(1.0f, 1.0f, 1.0f);
+
 
 		trayModelInfo = ModelInfo(this, TRAY_MODEL_PRE_INFO);
-		trayModelInfo.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
-								{1, TEXTURE, 0, &trayTexture} });
+		trayModelInfo.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr, nullptr},
+								{1, TEXTURE, 0, &trayTexture, nullptr} });
 
 		for (ModelPreInfo mpi : PIECES_MODEL_PRE_INFO)
 		{
 			PieceModelInfo mi = PieceModelInfo(this, mpi);
-			mi.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
-									{1, TEXTURE, 0, &pieceTexture} });
-			mi.previewDS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
-									{1, TEXTURE, 0, &pieceTexture} });
+			mi.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr,nullptr},
+									{1, TEXTURE, 0, &pieceTexture, nullptr} });
+			mi.previewDS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr, nullptr},
+									{1, TEXTURE, 0, &pieceTexture, nullptr} });
 			piecesModelInfo.push_back(mi);
 		}
 
 		//background plane initialization
 		backgroundModelInfo = ModelInfo(this, planeVertices, planeIndices);
-		backgroundModelInfo.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
-									{1, TEXTURE, 0, &backgroundTexture} });
+		backgroundModelInfo.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr, nullptr},
+									{1, TEXTURE, 0, &backgroundTexture, nullptr} });
 		backgroundModelInfo.position = glm::vec3(0.0f, 0.0f, 0.0f);
 		backgroundModelInfo.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 		backgroundModelInfo.scale =  PLANE_SCALE * glm::vec3(1.0f, 1.0f, 1.0f);
@@ -460,7 +489,6 @@ class MyProject : public BaseProject {
 		selectPiece(3);
 
 
-		// T1.init(this, TEXTURE_PATH);
 		globalDS.init(this, &DSLglobal, {
 		// the second parameter, is a pointer to the Uniform Set Layout of this set
 		// the last parameter is an array, with one element per binding of the set.
@@ -468,7 +496,7 @@ class MyProject : public BaseProject {
 		// second element : UNIFORM or TEXTURE (an enum) depending on the type
 		// third  element : only for UNIFORMs, the size of the corresponding C++ object
 		// fourth element : only for TEXTUREs, the pointer to the corresponding texture object
-					{0, UNIFORM, sizeof(globalUniformBufferObject), nullptr}
+					{0, UNIFORM, sizeof(globalUniformBufferObject), nullptr, nullptr}
 				});
 
 		glfwSetWindowUserPointer(window, this);
@@ -479,8 +507,10 @@ class MyProject : public BaseProject {
 	void localCleanup() {
 		trayTexture.cleanup();
 		pieceTexture.cleanup();
+		skyBoxTexture.cleanup();
 		globalDS.cleanup();
 
+		skyBoxModelInfo.cleanup();
 		trayModelInfo.cleanup();
 		for (PieceModelInfo mi : piecesModelInfo)
 		{
@@ -489,15 +519,22 @@ class MyProject : public BaseProject {
 		backgroundModelInfo.cleanup();
 
 		P1.cleanup();
+		PSkyBox.cleanup();
 		DSLglobal.cleanup();
 		DSLobj.cleanup();
+		DSLSkyBox.cleanup();
 	}
 	
 	// Here it is the creation of the command buffer:
 	// You send to the GPU all the objects you want to draw,
 	// with their buffers and textures
 	void populateCommandBuffer(VkCommandBuffer commandBuffer, int currentImage) {
-				
+		
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+			PSkyBox.graphicsPipeline);
+		skyBoxModelInfo.drawModel(PSkyBox, commandBuffer, currentImage, 0);
+
+
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
 				P1.graphicsPipeline);
 		vkCmdBindDescriptorSets(commandBuffer,
@@ -505,12 +542,12 @@ class MyProject : public BaseProject {
 			P1.pipelineLayout, 0, 1, &globalDS.descriptorSets[currentImage],
 			0, nullptr);
 		
-		trayModelInfo.drawModel(P1, commandBuffer, currentImage);
+		trayModelInfo.drawModel(P1, commandBuffer, currentImage, 1);
 		for (PieceModelInfo mi : piecesModelInfo)
 		{
-			mi.drawModel(P1, commandBuffer, currentImage);
+			mi.drawModel(P1, commandBuffer, currentImage, 1);
 		}
-		backgroundModelInfo.drawModel(P1, commandBuffer, currentImage);
+		backgroundModelInfo.drawModel(P1, commandBuffer, currentImage, 1);
 	}
 
 	// std::vector<glm::vec3> ObjsPos;
@@ -550,16 +587,23 @@ class MyProject : public BaseProject {
 		gubo.ambientLight = glm::vec3(0.3f, 0.3f, 0.3f);
 		gubo.ambientLightDirection = glm::vec3(0.0f, -1.0f, 0.0f);
 		gubo.paramDecay = glm::vec4(8.0f, 1.0f, 0.98f, 0.95f); //g, decay, Cin, Cout
-		
+
 
 		glm::vec3 selectedPieceBaricenterPosition = piecesModelInfo[selectedPieceIndex].baricenterPosition();
 		gubo.spotlight_pos = glm::vec3(selectedPieceBaricenterPosition.x, 5.0f, selectedPieceBaricenterPosition.z);
 
-		
+
 		vkMapMemory(device, globalDS.uniformBuffersMemory[0][currentImage], 0,
 			sizeof(gubo), 0, &data);
 		memcpy(data, &gubo, sizeof(gubo));
 		vkUnmapMemory(device, globalDS.uniformBuffersMemory[0][currentImage]);
+
+		SkyBoxUniformBufferObject skbubo{};
+		skbubo.mvpMat = gubo.proj * gubo.view * MakeWorldMatrixEuler(skyBoxModelInfo.position, skyBoxModelInfo.eulerRotation, skyBoxModelInfo.scale);
+		vkMapMemory(device, skyBoxModelInfo.DS.uniformBuffersMemory[0][currentImage], 0,
+			sizeof(skbubo), 0, &data);
+		memcpy(data, &skbubo, sizeof(skbubo));
+		vkUnmapMemory(device, skyBoxModelInfo.DS.uniformBuffersMemory[0][currentImage]);
 	}
 
 
@@ -671,10 +715,10 @@ class MyProject : public BaseProject {
 		//static glm::mat4 viewMatrix = lookIn(cameraPos, glm::radians(cameraYPR.x), glm::radians(cameraYPR.y), glm::radians(cameraYPR.z)); // camera starts looking down
 
 		static float linearSpeed = 1.0f;
-		// static float angularSpeed = 20;
+		static float angularSpeed = 50;
 
 		glm::vec3 mov = glm::vec3(0, 0, 0);
-		// glm::vec3 rot = glm::vec3(0, 0, 0);
+		glm::vec3 rot = glm::vec3(0, 0, 0);
 
 		// camera movements controlls
 		if (glfwGetKey(window, GLFW_KEY_LEFT)) {
@@ -700,6 +744,24 @@ class MyProject : public BaseProject {
 		if (glfwGetKey(window, GLFW_KEY_X)) {
 			mov.z += 1;
 		}
+
+		if (glfwGetKey(window, GLFW_KEY_J)) {
+			rot.x -= 1;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_L)) {
+			rot.x += 1;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_K)) {
+			rot.y -= 1;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_I)) {
+			rot.y += 1;
+		}
+
+		cameraYPR += angularSpeed * deltaTime * rot;
 
 		glm::vec3 translation = glm::vec3(glm::rotate(glm::mat4(1.0), -glm::radians(cameraYPR.z), glm::vec3(0, 0, 1))
 			* glm::rotate(glm::mat4(1.0), -glm::radians(cameraYPR.y), glm::vec3(1, 0, 0))
@@ -776,6 +838,7 @@ class MyProject : public BaseProject {
 
 //THINGS MODIDIED ON MyProject.hpp
 //1759: modified color blending to include alpha blending
+//created CubicTexture and generalized functions called both from it and Texture
 
 
 // This is the main: probably you do not need to touch this!

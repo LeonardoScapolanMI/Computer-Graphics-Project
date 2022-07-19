@@ -210,6 +210,22 @@ struct Texture {
 	void cleanup();
 };
 
+struct CubicTexture {
+	BaseProject* BP;
+	uint32_t mipLevels;
+	VkImage textureImage;
+	VkDeviceMemory textureImageMemory;
+	VkImageView textureImageView;
+	VkSampler textureSampler;
+
+	void createCubicTextureImage(const std::string file[6]);
+	void createCubicImageView();
+	void createCubicTextureSampler();
+
+	void init(BaseProject* bp, const std::string file[6]);
+	void cleanup();
+};
+
 struct DescriptorSetLayoutBinding {
 	uint32_t binding;
 	VkDescriptorType type;
@@ -231,19 +247,20 @@ struct Pipeline {
   	VkPipelineLayout pipelineLayout;
   	
   	void init(BaseProject *bp, const std::string& VertShader, const std::string& FragShader,
-  			  std::vector<DescriptorSetLayout *> D);
+  			  std::vector<DescriptorSetLayout *> D, VkCompareOp compareOP);
   	VkShaderModule createShaderModule(const std::vector<char>& code);
   	static std::vector<char> readFile(const std::string& filename);  	
 	void cleanup();
 };
 
-enum DescriptorSetElementType {UNIFORM, TEXTURE};
+enum DescriptorSetElementType {UNIFORM, TEXTURE, CUBIC_TEXTURE};
 
 struct DescriptorSetElement {
 	int binding;
 	DescriptorSetElementType type;
 	int size;
 	Texture *tex;
+	CubicTexture* ctex;
 };
 
 struct DescriptorSet {
@@ -265,6 +282,7 @@ struct DescriptorSet {
 class BaseProject {
 	friend class Model;
 	friend class Texture;
+	friend class CubicTexture;
 	friend class Pipeline;
 	friend class DescriptorSetLayout;
 	friend class DescriptorSet;
@@ -801,18 +819,21 @@ protected:
 	// Lesson 14
 	VkImageView createImageView(VkImage image, VkFormat format,
 								VkImageAspectFlags aspectFlags,
-								uint32_t mipLevels // New in Lesson 23
+								uint32_t mipLevels, // New in Lesson 23,
+								VkImageViewType type = VK_IMAGE_VIEW_TYPE_2D,
+								int layerCount = 1
 								) {
 		VkImageViewCreateInfo viewInfo{};
 		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		viewInfo.image = image;
-		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewInfo.viewType = type; // default VK_IMAGE_VIEW_TYPE_2D
 		viewInfo.format = format;
 		viewInfo.subresourceRange.aspectMask = aspectFlags;
 		viewInfo.subresourceRange.baseMipLevel = 0;
 		viewInfo.subresourceRange.levelCount = mipLevels;
 		viewInfo.subresourceRange.baseArrayLayer = 0;
-		viewInfo.subresourceRange.layerCount = 1;
+		viewInfo.subresourceRange.layerCount = layerCount; // default 1
+
 		VkImageView imageView;
 
 		VkResult result = vkCreateImageView(device, &viewInfo, nullptr,
@@ -956,7 +977,9 @@ protected:
 					 VkFormat format,
 				 	 VkImageTiling tiling, VkImageUsageFlags usage,
 				 	 VkMemoryPropertyFlags properties, VkImage& image,
-				 	 VkDeviceMemory& imageMemory) {		
+				 	 VkDeviceMemory& imageMemory,
+					 uint32_t arrayLayers = 1,
+					 VkImageCreateFlags imageCreateflags = 0) {		
 		VkImageCreateInfo imageInfo{};
 		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -964,14 +987,14 @@ protected:
 		imageInfo.extent.height = height;
 		imageInfo.extent.depth = 1;
 		imageInfo.mipLevels = mipLevels;
-		imageInfo.arrayLayers = 1;
+		imageInfo.arrayLayers = arrayLayers;  // Default 1
 		imageInfo.format = format;
 		imageInfo.tiling = tiling;
 		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		imageInfo.usage = usage;
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		imageInfo.flags = 0; // Optional
+		imageInfo.flags = imageCreateflags; // Default VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT
 		
 		VkResult result = vkCreateImage(device, &imageInfo, nullptr, &image);
 		if (result != VK_SUCCESS) {
@@ -998,7 +1021,7 @@ protected:
 	// New - Lesson 23
 	void generateMipmaps(VkImage image, VkFormat imageFormat,
 						 int32_t texWidth, int32_t texHeight,
-						 uint32_t mipLevels) {
+						 uint32_t mipLevels, int layerCount = 1) {
 		VkFormatProperties formatProperties;
 		vkGetPhysicalDeviceFormatProperties(physicalDevice, imageFormat,
 							&formatProperties);
@@ -1017,7 +1040,7 @@ protected:
 		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		barrier.subresourceRange.baseArrayLayer = 0;
-		barrier.subresourceRange.layerCount = 1;
+		barrier.subresourceRange.layerCount = layerCount;
 		barrier.subresourceRange.levelCount = 1;
 
 		int32_t mipWidth = texWidth;
@@ -1042,14 +1065,14 @@ protected:
 			blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			blit.srcSubresource.mipLevel = i - 1;
 			blit.srcSubresource.baseArrayLayer = 0;
-			blit.srcSubresource.layerCount = 1;
+			blit.srcSubresource.layerCount = layerCount;
 			blit.dstOffsets[0] = { 0, 0, 0 };
 			blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1,
 								   mipHeight > 1 ? mipHeight/2:1, 1};
 			blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			blit.dstSubresource.mipLevel = i;
 			blit.dstSubresource.baseArrayLayer = 0;
-			blit.dstSubresource.layerCount = 1;
+			blit.dstSubresource.layerCount = layerCount;
 			
 			vkCmdBlitImage(commandBuffer, image,
 						   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -1117,7 +1140,7 @@ protected:
 	
 	// New - Lesson 23
 	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t
-						   width, uint32_t height) {
+						   width, uint32_t height, int layerCount = 1) {
 		VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 		
 		VkBufferImageCopy region{};
@@ -1127,7 +1150,7 @@ protected:
 		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		region.imageSubresource.mipLevel = 0;
 		region.imageSubresource.baseArrayLayer = 0;
-		region.imageSubresource.layerCount = 1;
+		region.imageSubresource.layerCount = layerCount;
 		region.imageOffset = {0, 0, 0};
 		region.imageExtent = {width, height, 1};
 		
@@ -1657,8 +1680,117 @@ void Texture::cleanup() {
 
 
 
+void CubicTexture::createCubicTextureImage(const std::string file[6]) {
+	int texWidth, texHeight, texChannels;
+	stbi_uc* pixels[6];
+	for (int i = 0; i < 6; i++) {
+		pixels[i] = stbi_load(file[i].c_str(), &texWidth, &texHeight,
+			&texChannels, STBI_rgb_alpha);
+		if (!pixels[i]) {
+			std::cout << file[i].c_str() << "\n";
+			throw std::runtime_error("failed to load texture image!");
+		}
+		std::cout << file[i] << " -> size: " << texWidth
+			<< "x" << texHeight << ", ch: " << texChannels << "\n";
+	}
+
+	VkDeviceSize imageSize = texWidth * texHeight * 4;
+	VkDeviceSize totalImageSize = texWidth * texHeight * 4 * 6;
+	mipLevels = static_cast<uint32_t>(std::floor(
+		std::log2(std::max(texWidth, texHeight)))) + 1;
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+
+	BP->createBuffer(totalImageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer, stagingBufferMemory);
+	void* data;
+	vkMapMemory(BP->device, stagingBufferMemory, 0, totalImageSize, 0, &data);
+	for (int i = 0; i < 6; i++) {
+		memcpy(static_cast<char*>(data) + imageSize * i, pixels[i], static_cast<size_t>(imageSize));
+	}
+	vkUnmapMemory(BP->device, stagingBufferMemory);
+
+	for (int i = 0; i < 6; i++) {
+		stbi_image_free(pixels[i]);
+	}
+
+	BP->createImage(texWidth, texHeight, mipLevels, VK_FORMAT_R8G8B8A8_SRGB,
+		VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage,
+		textureImageMemory, 6, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
+
+	BP->transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels);
+	BP->copyBufferToImage(stagingBuffer, textureImage,
+		static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 6);
+
+	BP->generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
+		texWidth, texHeight, mipLevels, 6);
+
+	vkDestroyBuffer(BP->device, stagingBuffer, nullptr);
+	vkFreeMemory(BP->device, stagingBufferMemory, nullptr);
+}
+
+void CubicTexture::createCubicImageView() {
+	textureImageView = BP->createImageView(textureImage,
+		VK_FORMAT_R8G8B8A8_SRGB,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		mipLevels, VK_IMAGE_VIEW_TYPE_CUBE, 6);
+}
+
+void CubicTexture::createCubicTextureSampler() {
+	VkSamplerCreateInfo samplerInfo{};
+	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerInfo.magFilter = VK_FILTER_LINEAR;
+	samplerInfo.minFilter = VK_FILTER_LINEAR;
+	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.anisotropyEnable = VK_TRUE;
+	samplerInfo.maxAnisotropy = 16;
+	samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	samplerInfo.unnormalizedCoordinates = VK_FALSE;
+	samplerInfo.compareEnable = VK_FALSE;
+	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerInfo.mipLodBias = 0.0f;
+	samplerInfo.minLod = 0.0f;
+	samplerInfo.maxLod = static_cast<float>(mipLevels);
+
+	VkResult result = vkCreateSampler(BP->device, &samplerInfo, nullptr,
+		&textureSampler);
+	if (result != VK_SUCCESS) {
+		PrintVkError(result);
+		throw std::runtime_error("failed to create texture sampler!");
+	}
+}
+
+
+
+void CubicTexture::init(BaseProject* bp, const std::string file[6]) {
+	BP = bp;
+	createCubicTextureImage(file);
+	createCubicImageView();
+	createCubicTextureSampler();
+}
+
+void CubicTexture::cleanup() {
+	vkDestroySampler(BP->device, textureSampler, nullptr);
+	vkDestroyImageView(BP->device, textureImageView, nullptr);
+	vkDestroyImage(BP->device, textureImage, nullptr);
+	vkFreeMemory(BP->device, textureImageMemory, nullptr);
+}
+
+
+
+
+
 void Pipeline::init(BaseProject *bp, const std::string& VertShader, const std::string& FragShader,
-					std::vector<DescriptorSetLayout *> D) {
+					std::vector<DescriptorSetLayout *> D, VkCompareOp compareOP = VK_COMPARE_OP_LESS) {
 	BP = bp;
 	
 	auto vertShaderCode = readFile(VertShader);
@@ -1809,7 +1941,7 @@ void Pipeline::init(BaseProject *bp, const std::string& VertShader, const std::s
 			VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 	depthStencil.depthTestEnable = VK_TRUE;
 	depthStencil.depthWriteEnable = VK_TRUE;
-	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+	depthStencil.depthCompareOp = compareOP; //default VK_COMPARE_OP_LESS
 	depthStencil.depthBoundsTestEnable = VK_FALSE;
 	depthStencil.minDepthBounds = 0.0f; // Optional
 	depthStencil.maxDepthBounds = 1.0f; // Optional
@@ -1991,6 +2123,21 @@ void DescriptorSet::init(BaseProject *bp, DescriptorSetLayout *DSL,
 				descriptorWrites[j].dstArrayElement = 0;
 				descriptorWrites[j].descriptorType =
 											VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+				descriptorWrites[j].descriptorCount = 1;
+				descriptorWrites[j].pImageInfo = &imageInfo;
+			}
+			else if (E[j].type == CUBIC_TEXTURE) {
+				VkDescriptorImageInfo imageInfo{};
+				imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				imageInfo.imageView = E[j].ctex->textureImageView;
+				imageInfo.sampler = E[j].ctex->textureSampler;
+
+				descriptorWrites[j].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+				descriptorWrites[j].dstSet = descriptorSets[i];
+				descriptorWrites[j].dstBinding = E[j].binding;
+				descriptorWrites[j].dstArrayElement = 0;
+				descriptorWrites[j].descriptorType =
+					VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 				descriptorWrites[j].descriptorCount = 1;
 				descriptorWrites[j].pImageInfo = &imageInfo;
 			}
