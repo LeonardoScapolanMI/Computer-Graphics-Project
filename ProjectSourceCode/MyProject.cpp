@@ -343,11 +343,19 @@ enum class SelectionState {
 	TRANSLATION_MODE
 };
 
+enum class VisualizationMode {
+	SPOTLIGHT_ON_SELECTED_PIECE,
+	SPOTLIGHT_ON_COMPOSITION
+};
+
+
 // MAIN CLASS
 class MyProject : public BaseProject {
 	private:
 	int	selectedPieceIndex = 0;
 	float selectedModelTargetY = 1.0f;
+
+	VisualizationMode visualizationMode = VisualizationMode::SPOTLIGHT_ON_SELECTED_PIECE;
 
 	SelectionState selectionMode = SelectionState::SELECTION_MODE;
 	SelectionState nextSelectionMode = SelectionState::SELECTION_MODE;
@@ -592,11 +600,31 @@ class MyProject : public BaseProject {
 		gubo.eyePos = cameraPos;
 		gubo.ambientLight = glm::vec3(0.3f, 0.3f, 0.3f);
 		gubo.ambientLightDirection = glm::vec3(0.0f, -1.0f, 0.0f);
-		gubo.paramDecay = glm::vec4(8.0f, 1.0f, 0.96f, 0.93f); //g, decay, Cin, Cout
-		
 
-		glm::vec3 selectedPieceBaricenterPosition = piecesModelInfo[selectedPieceIndex].baricenterPosition();
-		gubo.spotlight_pos = glm::vec3(selectedPieceBaricenterPosition.x, 6.0f, selectedPieceBaricenterPosition.z);
+		switch (visualizationMode) {
+		case VisualizationMode::SPOTLIGHT_ON_COMPOSITION:
+			gubo.paramDecay = glm::vec4(8.0f, 1.0f, 0.80f, 0.75f); //g, decay, Cin, Cout
+
+			glm::vec3 compositionBaricenterPosition = glm::vec3(0);
+			for (PieceModelInfo pmi : piecesModelInfo) {
+				compositionBaricenterPosition += pmi.baricenterPosition();
+			}
+			compositionBaricenterPosition /= piecesModelInfo.size();
+
+			gubo.spotlight_pos = glm::vec3(compositionBaricenterPosition.x, 6.0f, compositionBaricenterPosition.z);
+			break;
+		case VisualizationMode::SPOTLIGHT_ON_SELECTED_PIECE:
+			gubo.paramDecay = glm::vec4(8.0f, 1.0f, 0.96f, 0.93f); //g, decay, Cin, Cout
+
+			glm::vec3 selectedPieceBaricenterPosition = piecesModelInfo[selectedPieceIndex].baricenterPosition();
+			gubo.spotlight_pos = glm::vec3(selectedPieceBaricenterPosition.x, 6.0f, selectedPieceBaricenterPosition.z);
+			break;
+		default:
+			gubo.paramDecay = glm::vec4(8.0f, 1.0f, 0.96f, 0.93f); //g, decay, Cin, Cout
+
+			selectedPieceBaricenterPosition = piecesModelInfo[selectedPieceIndex].baricenterPosition();
+			gubo.spotlight_pos = glm::vec3(selectedPieceBaricenterPosition.x, 6.0f, selectedPieceBaricenterPosition.z);
+		}
 
 
 		vkMapMemory(device, globalDS.uniformBuffersMemory[0][currentImage], 0,
@@ -620,6 +648,19 @@ class MyProject : public BaseProject {
 		static std::vector<int> modelToSkipIndexes = {};
 
 		MyProject* that = static_cast<MyProject*>(glfwGetWindowUserPointer(window));
+
+		if (key == GLFW_KEY_M && action == GLFW_RELEASE) {
+			switch (that->visualizationMode) {
+			case VisualizationMode::SPOTLIGHT_ON_COMPOSITION:
+				that->visualizationMode = VisualizationMode::SPOTLIGHT_ON_SELECTED_PIECE;
+				break;
+			case VisualizationMode::SPOTLIGHT_ON_SELECTED_PIECE:
+				that->visualizationMode = VisualizationMode::SPOTLIGHT_ON_COMPOSITION;
+				break;
+			default:
+				that->visualizationMode = VisualizationMode::SPOTLIGHT_ON_COMPOSITION;
+			}
+		}
 
 		if (that->selectionMode == SelectionState::TRANSITION) return;
 
