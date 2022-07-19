@@ -264,6 +264,20 @@ public:
 		vkUnmapMemory(device, DS.uniformBuffersMemory[0][currentImage]);
 	}
 
+	const void updateWUBO(VkDevice device, uint32_t currentImage) {
+		WireframeUniformBufferObject wubo;
+
+		wubo.model = MakeWorldMatrixEuler(getActualPosition(), eulerRotation, scale);
+		wubo.color = color;
+
+		void* data;
+
+		vkMapMemory(device, DS.uniformBuffersMemory[0][currentImage], 0,
+			sizeof(wubo), 0, &data);
+		memcpy(data, &wubo, sizeof(wubo));
+		vkUnmapMemory(device, DS.uniformBuffersMemory[0][currentImage]);
+	}
+
 	void cleanup() {
 		DS.cleanup();
 		model.cleanup();
@@ -446,7 +460,7 @@ class MyProject : public BaseProject {
 		// be used in this pipeline. The first element will be set 0, and so on..
 		P1.init(this, "shaders/vert.spv", "shaders/frag.spv", { &DSLglobal, &DSLobj });
 		PSkyBox.init(this, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", { &DSLSkyBox }, VK_COMPARE_OP_LESS_OR_EQUAL);
-		PWireframe.init(this, "shaders/WireframeVert.spv", "shaders/WireframeFrag.spv", { &DSLWireframe }, );
+		PWireframe.init(this, "shaders/WireframeVert.spv", "shaders/WireframeFrag.spv", { &DSLWireframe, &DSLglobal}, true);
 
 		// Models, textures and Descriptors (values assigned to the uniforms)
 		trayTexture.init(this, TRAY_TEXTURE_PATH);
@@ -644,6 +658,10 @@ class MyProject : public BaseProject {
 			mi.updateUBO(device, currentImage);
 			mi.updatePreviewUBO(device, currentImage, selectionMode == SelectionState::TRANSLATION_MODE || selectionMode == SelectionState::TRANSITION);
 		}
+
+		for (ModelInfo mi : piecesWireframeModelInfo) {
+			mi.updateWUBO(device, currentImage);
+		}
 		backgroundModelInfo.updateUBO(device, currentImage);
 
 		updateCameraPos(dt);
@@ -696,6 +714,8 @@ class MyProject : public BaseProject {
 			sizeof(skbubo), 0, &data);
 		memcpy(data, &skbubo, sizeof(skbubo));
 		vkUnmapMemory(device, skyBoxModelInfo.DS.uniformBuffersMemory[0][currentImage]);
+
+
 	}
 
 
