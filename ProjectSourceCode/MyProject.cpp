@@ -212,6 +212,10 @@ public:
 		return model;
 	}
 
+	glm::vec3 getActualPosition() {
+		return position + offset;
+	}
+
 	//TODO change formula to include rotation and scaling
 	glm::vec3 baricenterPosition() {
 		return position + glm::vec3(MakeWorldMatrixEuler(glm::vec3(0), eulerRotation, scale) * glm::vec4(baricenterOffset, 0.0f));
@@ -241,7 +245,7 @@ public:
 	const void updateUBO(VkDevice device, uint32_t currentImage) {
 		UniformBufferObject ubo;
 
-		ubo.model = MakeWorldMatrixEuler(position, eulerRotation, scale);
+		ubo.model = MakeWorldMatrixEuler(getActualPosition(), eulerRotation, scale);
 		ubo.color = color;
 		ubo.selected = 0.0f;
 
@@ -295,7 +299,7 @@ public:
 	const void updateUBO(VkDevice device, uint32_t currentImage) {
 		UniformBufferObject ubo;
 
-		ubo.model = MakeWorldMatrixEuler(position, eulerRotation, scale);
+		ubo.model = MakeWorldMatrixEuler(getActualPosition(), eulerRotation, scale);
 		ubo.color = color;
 		ubo.selected = selected ? 1.0f : 0.0f;
 
@@ -310,7 +314,7 @@ public:
 	const void updatePreviewUBO(VkDevice device, uint32_t currentImage, bool visible) {
 		UniformBufferObject ubo;
 
-		glm::vec3 pos = glm::vec3(position.x, PIECES_BASE_Y, position.z);
+		glm::vec3 pos = glm::vec3(getActualPosition().x, PIECES_BASE_Y + offset.y, getActualPosition().z);
 
 		ubo.model = MakeWorldMatrixEuler(pos, eulerRotation, scale);
 		ubo.color = color;
@@ -458,17 +462,17 @@ class MyProject : public BaseProject {
 
 
 		//container position and color initialization
-		trayModelInfo.position = glm::vec3(0.0f, 0.0f, 0.0f) + TRAY_MODEL_PRE_INFO.offset;
+		trayModelInfo.position = glm::vec3(0.0f, 0.0f, 0.0f);
 		trayModelInfo.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
 		//pieces position and color initialization
-		piecesModelInfo[0].position = glm::vec3(-1.0f, PIECES_BASE_Y, 0.0f) + PIECES_MODEL_PRE_INFO[0].offset;
-		piecesModelInfo[1].position = glm::vec3(1.5f, PIECES_BASE_Y, -1.5f) + PIECES_MODEL_PRE_INFO[1].offset;
-		piecesModelInfo[2].position = glm::vec3(0.5f, PIECES_BASE_Y, 0.0f) + PIECES_MODEL_PRE_INFO[2].offset;
-		piecesModelInfo[3].position = glm::vec3(1.5f, PIECES_BASE_Y, 0.5f) + PIECES_MODEL_PRE_INFO[3].offset;
-		piecesModelInfo[4].position = glm::vec3(0.0f, PIECES_BASE_Y, -1.0f) + PIECES_MODEL_PRE_INFO[4].offset;
-		piecesModelInfo[5].position = glm::vec3(-1.0f, PIECES_BASE_Y, -2.0f) + PIECES_MODEL_PRE_INFO[5].offset;
-		piecesModelInfo[6].position = glm::vec3(0.0f, PIECES_BASE_Y, 1.0f) + PIECES_MODEL_PRE_INFO[6].offset;
+		piecesModelInfo[0].position = glm::vec3(-1.0f, PIECES_BASE_Y, 0.0f);
+		piecesModelInfo[1].position = glm::vec3(1.5f, PIECES_BASE_Y, -1.5f);
+		piecesModelInfo[2].position = glm::vec3(0.5f, PIECES_BASE_Y, 0.0f);
+		piecesModelInfo[3].position = glm::vec3(1.5f, PIECES_BASE_Y, 0.5f);
+		piecesModelInfo[4].position = glm::vec3(0.0f, PIECES_BASE_Y, -1.0f);
+		piecesModelInfo[5].position = glm::vec3(-1.0f, PIECES_BASE_Y, -2.0f);
+		piecesModelInfo[6].position = glm::vec3(0.0f, PIECES_BASE_Y, 1.0f);
 
 		/*piecesModelInfo[0].color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
 		piecesModelInfo[1].color = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
@@ -599,7 +603,7 @@ class MyProject : public BaseProject {
 		vkUnmapMemory(device, globalDS.uniformBuffersMemory[0][currentImage]);
 
 		SkyBoxUniformBufferObject skbubo{};
-		skbubo.mvpMat = gubo.proj * gubo.view * MakeWorldMatrixEuler(skyBoxModelInfo.position, skyBoxModelInfo.eulerRotation, skyBoxModelInfo.scale);
+		skbubo.mvpMat = gubo.proj * gubo.view * MakeWorldMatrixEuler(skyBoxModelInfo.getActualPosition(), skyBoxModelInfo.eulerRotation, skyBoxModelInfo.scale);
 		vkMapMemory(device, skyBoxModelInfo.DS.uniformBuffersMemory[0][currentImage], 0,
 			sizeof(skbubo), 0, &data);
 		memcpy(data, &skbubo, sizeof(skbubo));
@@ -656,12 +660,13 @@ class MyProject : public BaseProject {
 		int newSelectedModelIndex = selectedPieceIndex;
 		std::optional<float> minDistance = std::nullopt;
 
-		glm::vec3 selectedModelPosition = piecesModelInfo[selectedPieceIndex].position;
+		glm::vec3 selectedModelPosition = piecesModelInfo[selectedPieceIndex].getActualPosition();
 
 		for (int i = 0; i < piecesModelInfo.size(); i++) {
 			PieceModelInfo model = piecesModelInfo[i];
+			glm::vec3 modelPos = model.getActualPosition();
 
-			float angle = atan2(model.position.z - selectedModelPosition.z, model.position.x - selectedModelPosition.x);
+			float angle = atan2(modelPos.z - selectedModelPosition.z, modelPos.x - selectedModelPosition.x);
 
 			bool isInCorrectDirection;
 			if (angleMin <= angleMax)
@@ -671,7 +676,7 @@ class MyProject : public BaseProject {
 
 			if (i != selectedPieceIndex && isInCorrectDirection && std::count(modelToSkipIndexes.begin(), modelToSkipIndexes.end(), i)==0) {
 				// std::cerr << "hit " << i << std::endl;
-				float squaredDistance = (model.position.x - selectedModelPosition.x) * (model.position.x - selectedModelPosition.x) + (model.position.z - selectedModelPosition.z) * (model.position.z - selectedModelPosition.z);
+				float squaredDistance = (modelPos.x - selectedModelPosition.x) * (modelPos.x - selectedModelPosition.x) + (modelPos.z - selectedModelPosition.z) * (modelPos.z - selectedModelPosition.z);
 				if (!minDistance.has_value() || squaredDistance < minDistance) {
 					minDistance = squaredDistance;
 					newSelectedModelIndex = i;
@@ -818,17 +823,17 @@ class MyProject : public BaseProject {
 	void selectedModelTransition(float deltaTime) {
 		static float linearSpeed = 4.0f;
 
-		if (selectedModelTargetY > piecesModelInfo[selectedPieceIndex].position.y) {
+		if (selectedModelTargetY > piecesModelInfo[selectedPieceIndex].getActualPosition().y) {
 			piecesModelInfo[selectedPieceIndex].position.y += linearSpeed * deltaTime;
-			if (piecesModelInfo[selectedPieceIndex].position.y >= selectedModelTargetY) {
-				piecesModelInfo[selectedPieceIndex].position.y = selectedModelTargetY;
+			if (piecesModelInfo[selectedPieceIndex].getActualPosition().y >= selectedModelTargetY) {
+				piecesModelInfo[selectedPieceIndex].position.y = selectedModelTargetY;// -piecesModelInfo[selectedPieceIndex].offset.y;
 				selectionMode = nextSelectionMode;
 			}
 		}
 		else {
 			piecesModelInfo[selectedPieceIndex].position.y -= linearSpeed * deltaTime;
-			if (piecesModelInfo[selectedPieceIndex].position.y <= selectedModelTargetY) {
-				piecesModelInfo[selectedPieceIndex].position.y = selectedModelTargetY;
+			if (piecesModelInfo[selectedPieceIndex].getActualPosition().y <= selectedModelTargetY) {
+				piecesModelInfo[selectedPieceIndex].position.y = selectedModelTargetY;// -piecesModelInfo[selectedPieceIndex].offset.y;
 				selectionMode = nextSelectionMode;
 			}
 		}
