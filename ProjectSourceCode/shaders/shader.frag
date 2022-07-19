@@ -35,11 +35,11 @@ void main() {
 	}
 	*/
 
-	vec3 lightColor_Spot = vec3(1.0f, 1.0f, 1.0f);
+	vec3 lightColor_Spot = vec3(0.9f, 0.9f, 0.9f);
 	vec3 lightPos_Spot = gubo.spotlight_pos;
 	vec3 direction_Spot = - normalize(vec3(0.0f, -1.0f, 0.0f));
 
-	const vec3  specColor = vec3(0.8f, 0.8f, 0.8f);
+	const vec3  specColor = vec3(0.5f, 0.5f, 0.5f);
 	const float specPower = 32.0f;
 
 

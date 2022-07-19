@@ -586,11 +586,11 @@ class MyProject : public BaseProject {
 		gubo.eyePos = cameraPos;
 		gubo.ambientLight = glm::vec3(0.3f, 0.3f, 0.3f);
 		gubo.ambientLightDirection = glm::vec3(0.0f, -1.0f, 0.0f);
-		gubo.paramDecay = glm::vec4(8.0f, 1.0f, 0.98f, 0.95f); //g, decay, Cin, Cout
-
+		gubo.paramDecay = glm::vec4(8.0f, 1.0f, 0.96f, 0.93f); //g, decay, Cin, Cout
+		
 
 		glm::vec3 selectedPieceBaricenterPosition = piecesModelInfo[selectedPieceIndex].baricenterPosition();
-		gubo.spotlight_pos = glm::vec3(selectedPieceBaricenterPosition.x, 5.0f, selectedPieceBaricenterPosition.z);
+		gubo.spotlight_pos = glm::vec3(selectedPieceBaricenterPosition.x, 6.0f, selectedPieceBaricenterPosition.z);
 
 
 		vkMapMemory(device, globalDS.uniformBuffersMemory[0][currentImage], 0,
