@@ -247,7 +247,9 @@ struct Pipeline {
   	VkPipelineLayout pipelineLayout;
   	
   	void init(BaseProject *bp, const std::string& VertShader, const std::string& FragShader,
-  			  std::vector<DescriptorSetLayout *> D, VkCompareOp compareOP);
+  			  std::vector<DescriptorSetLayout *> D, VkCompareOp compareOP, bool wireframePipeline);
+	void init(BaseProject* bp, const std::string& VertShader, const std::string& FragShader,
+		std::vector<DescriptorSetLayout*> D, bool wireframePipeline);
   	VkShaderModule createShaderModule(const std::vector<char>& code);
   	static std::vector<char> readFile(const std::string& filename);  	
 	void cleanup();
@@ -1789,8 +1791,13 @@ void CubicTexture::cleanup() {
 
 
 
-void Pipeline::init(BaseProject *bp, const std::string& VertShader, const std::string& FragShader,
-					std::vector<DescriptorSetLayout *> D, VkCompareOp compareOP = VK_COMPARE_OP_LESS) {
+void Pipeline::init(BaseProject* bp, const std::string& VertShader, const std::string& FragShader,
+	std::vector<DescriptorSetLayout*> D, bool wireframePipeline) {
+	init(bp, VertShader, FragShader, D, VK_COMPARE_OP_LESS, wireframePipeline);
+}
+
+void Pipeline::init(BaseProject* bp, const std::string& VertShader, const std::string& FragShader,
+	std::vector<DescriptorSetLayout*> D, VkCompareOp compareOP = VK_COMPARE_OP_LESS, bool wireframePipeline = false) {
 	BP = bp;
 	
 	auto vertShaderCode = readFile(VertShader);
@@ -1865,18 +1872,34 @@ void Pipeline::init(BaseProject *bp, const std::string& VertShader, const std::s
 	viewportState.pScissors = &scissor;
 	
 	VkPipelineRasterizationStateCreateInfo rasterizer{};
-	rasterizer.sType =
+	if (!wireframePipeline) {
+		rasterizer.sType =
 			VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-	rasterizer.depthClampEnable = VK_FALSE;
-	rasterizer.rasterizerDiscardEnable = VK_FALSE;
-	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-	rasterizer.lineWidth = 1.0f;
-	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-	rasterizer.depthBiasEnable = VK_FALSE;
-	rasterizer.depthBiasConstantFactor = 0.0f; // Optional
-	rasterizer.depthBiasClamp = 0.0f; // Optional
-	rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
+		rasterizer.depthClampEnable = VK_FALSE;
+		rasterizer.rasterizerDiscardEnable = VK_FALSE;
+		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+		rasterizer.lineWidth = 1.0f;
+		rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+		rasterizer.depthBiasEnable = VK_FALSE;
+		rasterizer.depthBiasConstantFactor = 0.0f; // Optional
+		rasterizer.depthBiasClamp = 0.0f; // Optional
+		rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
+	}
+	else {
+		rasterizer.sType =
+			VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+		rasterizer.depthClampEnable = VK_FALSE;
+		rasterizer.rasterizerDiscardEnable = VK_FALSE;
+		rasterizer.polygonMode = VK_POLYGON_MODE_LINE;
+		rasterizer.lineWidth = 2.0f;
+		rasterizer.cullMode = VK_CULL_MODE_NONE;
+		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+		rasterizer.depthBiasEnable = VK_FALSE;
+		rasterizer.depthBiasConstantFactor = 0.0f; // Optional
+		rasterizer.depthBiasClamp = 0.0f; // Optional
+		rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
+	}
 	
 	VkPipelineMultisampleStateCreateInfo multisampling{};
 	multisampling.sType =

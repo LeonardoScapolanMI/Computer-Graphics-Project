@@ -100,6 +100,8 @@ const std::vector<uint32_t> planeIndices = {
 	9, 2, 1, 9, 10, 2
 };
 
+const float FAR_PLANE = 100.0f;
+const float NEAR_PLANE = 0.1f;
 
 const float PIECES_BASE_Y = 0.125f;
 const float PIECES_ELEVATED_Y = 2 + PIECES_BASE_Y;
@@ -643,7 +645,7 @@ class MyProject : public BaseProject {
 		gubo.view = lookIn(cameraPos, cameraYPR);
 		gubo.proj = glm::perspective(glm::radians(45.0f),
 			swapChainExtent.width / (float)swapChainExtent.height,
-			0.1f, 100.0f);
+			NEAR_PLANE, FAR_PLANE);
 		gubo.proj[1][1] *= -1;
 		gubo.eyePos = cameraPos;
 		gubo.ambientLight = glm::vec3(0.3f, 0.3f, 0.3f);
