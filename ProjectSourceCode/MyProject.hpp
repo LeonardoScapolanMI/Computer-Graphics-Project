@@ -248,6 +248,8 @@ struct Pipeline {
   	
   	void init(BaseProject *bp, const std::string& VertShader, const std::string& FragShader,
   			  std::vector<DescriptorSetLayout *> D, VkCompareOp compareOP, bool wireframePipeline);
+	void init(BaseProject* bp, const std::string& VertShader, const std::string& FragShader,
+		std::vector<DescriptorSetLayout*> D, bool wireframePipeline);
   	VkShaderModule createShaderModule(const std::vector<char>& code);
   	static std::vector<char> readFile(const std::string& filename);  	
 	void cleanup();
@@ -1788,6 +1790,11 @@ void CubicTexture::cleanup() {
 
 
 
+
+void Pipeline::init(BaseProject* bp, const std::string& VertShader, const std::string& FragShader,
+	std::vector<DescriptorSetLayout*> D, bool wireframePipeline) {
+	init(bp, VertShader, FragShader, D, VK_COMPARE_OP_LESS, wireframePipeline);
+}
 
 void Pipeline::init(BaseProject* bp, const std::string& VertShader, const std::string& FragShader,
 	std::vector<DescriptorSetLayout*> D, VkCompareOp compareOP = VK_COMPARE_OP_LESS, bool wireframePipeline = false) {
