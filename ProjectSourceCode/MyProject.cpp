@@ -149,6 +149,11 @@ struct UniformBufferObject {
 	alignas(4) float selected;
 };
 
+struct WireframeUniformBufferObject {
+	alignas(16) glm::mat4 model;
+	alignas(16) glm::vec4 color;
+};
+
 struct SkyBoxUniformBufferObject {
 	alignas(16) glm::mat4 mvpMat;
 };
@@ -360,14 +365,17 @@ class MyProject : public BaseProject {
 	DescriptorSetLayout DSLglobal;
 	DescriptorSetLayout DSLobj;
 	DescriptorSetLayout DSLSkyBox;
+	DescriptorSetLayout DSLWireframe;
 
 	// Pipelines [Shader couples]
 	Pipeline P1;
 	Pipeline PSkyBox;
+	Pipeline PWireframe;
 
 	// Models, textures and Descriptors (values assigned to the uniforms)
 	ModelInfo trayModelInfo;
 	std::vector <PieceModelInfo> piecesModelInfo = {};
+	std::vector <ModelInfo> piecesWireframeModelInfo = {};
 	ModelInfo backgroundModelInfo;
 
 	ModelInfo skyBoxModelInfo;
@@ -391,9 +399,9 @@ class MyProject : public BaseProject {
 		initialBackgroundColor = {0.0f, 0.0f, 0.0f, 1.0f};
 		
 		// Descriptor pool sizes
-		uniformBlocksInPool = 1 + 1 + 2 * PIECES_MODEL_PRE_INFO.size() + 1 + 1; //global + 1 per model (tray, pieces, background) and another for each piece + skybox
+		uniformBlocksInPool = 1 + 1 + 3 * PIECES_MODEL_PRE_INFO.size() + 1 + 1; //global + 1 per model (tray, pieces, background, wireframe) and another for each piece + skybox
 		texturesInPool = 4;
-		setsInPool = 1 + 1 + 2 * PIECES_MODEL_PRE_INFO.size() + 1 + 1;
+		setsInPool = 1 + 1 + 3 * PIECES_MODEL_PRE_INFO.size() + 1 + 1;
 	}
 
 	// Here you load and setup all your Vulkan objects
@@ -418,11 +426,17 @@ class MyProject : public BaseProject {
 					{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
 			});
 
+		DSLWireframe.init(this, {
+					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS},
+					//{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
+			});
+
 		// Pipelines [Shader couples]
 		// The last array, is a vector of pointer to the layouts of the sets that will
 		// be used in this pipeline. The first element will be set 0, and so on..
 		P1.init(this, "shaders/vert.spv", "shaders/frag.spv", { &DSLglobal, &DSLobj });
 		PSkyBox.init(this, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", { &DSLSkyBox }, VK_COMPARE_OP_LESS_OR_EQUAL);
+		PWireframe.init(this, "shaders/WireframeVert.spv", "shaders/WireframeFrag.spv", { &DSLWireframe }, );
 
 		// Models, textures and Descriptors (values assigned to the uniforms)
 		trayTexture.init(this, TRAY_TEXTURE_PATH);
@@ -441,6 +455,13 @@ class MyProject : public BaseProject {
 		trayModelInfo = ModelInfo(this, TRAY_MODEL_PRE_INFO);
 		trayModelInfo.DS.init(this, &DSLobj, { {0, UNIFORM, sizeof(UniformBufferObject), nullptr, nullptr},
 								{1, TEXTURE, 0, &trayTexture, nullptr} });
+
+		for (ModelPreInfo mpi : PIECES_MODEL_PRE_INFO)
+		{
+			ModelInfo mi = ModelInfo(this, mpi);
+			mi.DS.init(this, &DSLWireframe, { {0, UNIFORM, sizeof(WireframeUniformBufferObject), nullptr, nullptr }});
+			piecesWireframeModelInfo.push_back(mi);
+		}
 
 		for (ModelPreInfo mpi : PIECES_MODEL_PRE_INFO)
 		{
@@ -474,6 +495,14 @@ class MyProject : public BaseProject {
 		piecesModelInfo[5].position = glm::vec3(-1.0f, PIECES_BASE_Y, -2.0f);
 		piecesModelInfo[6].position = glm::vec3(0.0f, PIECES_BASE_Y, 1.0f);
 
+		piecesWireframeModelInfo[0].position = glm::vec3(-3.0f, PIECES_BASE_Y, 0.0f);
+		piecesWireframeModelInfo[1].position = glm::vec3(3.5f, PIECES_BASE_Y, -3.5f);
+		piecesWireframeModelInfo[2].position = glm::vec3(3.5f, PIECES_BASE_Y, 0.0f);
+		piecesWireframeModelInfo[3].position = glm::vec3(3.5f, PIECES_BASE_Y, 3.5f);
+		piecesWireframeModelInfo[4].position = glm::vec3(3.0f, PIECES_BASE_Y, -3.0f);
+		piecesWireframeModelInfo[5].position = glm::vec3(-3.0f, PIECES_BASE_Y, -6.0f);
+		piecesWireframeModelInfo[6].position = glm::vec3(3.0f, PIECES_BASE_Y, 3.0f);
+
 		/*piecesModelInfo[0].color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
 		piecesModelInfo[1].color = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
 		piecesModelInfo[2].color = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
@@ -489,6 +518,14 @@ class MyProject : public BaseProject {
 		piecesModelInfo[4].color = glm::vec4(167, 150, 194, 255) / 255.0f;
 		piecesModelInfo[5].color = glm::vec4(241, 149, 200, 255) / 255.0f;
 		piecesModelInfo[6].color = glm::vec4(201, 232, 145, 255) / 255.0f;
+
+		piecesWireframeModelInfo[0].color = glm::vec4(104, 192, 210, 255) / 255.0f;
+		piecesWireframeModelInfo[1].color = glm::vec4(248, 200, 44, 255) / 255.0f;
+		piecesWireframeModelInfo[2].color = glm::vec4(240, 242, 35, 255) / 255.0f;
+		piecesWireframeModelInfo[3].color = glm::vec4(239, 61, 97, 255) / 255.0f;
+		piecesWireframeModelInfo[4].color = glm::vec4(167, 150, 194, 255) / 255.0f;
+		piecesWireframeModelInfo[5].color = glm::vec4(241, 149, 200, 255) / 255.0f;
+		piecesWireframeModelInfo[6].color = glm::vec4(201, 232, 145, 255) / 255.0f;
 
 		selectPiece(3);
 
@@ -520,13 +557,21 @@ class MyProject : public BaseProject {
 		{
 			mi.cleanup(); //cleans both model and DS
 		}
+
+		for (ModelInfo mi : piecesWireframeModelInfo)
+		{
+			mi.cleanup(); //cleans both model and DS
+		}
+
 		backgroundModelInfo.cleanup();
 
 		P1.cleanup();
 		PSkyBox.cleanup();
+		PWireframe.cleanup();
 		DSLglobal.cleanup();
 		DSLobj.cleanup();
 		DSLSkyBox.cleanup();
+		DSLWireframe.cleanup();
 	}
 	
 	// Here it is the creation of the command buffer:
@@ -545,11 +590,24 @@ class MyProject : public BaseProject {
 			VK_PIPELINE_BIND_POINT_GRAPHICS,
 			P1.pipelineLayout, 0, 1, &globalDS.descriptorSets[currentImage],
 			0, nullptr);
+
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+			PWireframe.graphicsPipeline);
+		
+		vkCmdBindDescriptorSets(commandBuffer, 
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			PWireframe.pipelineLayout, 0, 1, &globalDS.descriptorSets[currentImage],
+			0, nullptr);
 		
 		trayModelInfo.drawModel(P1, commandBuffer, currentImage, 1);
 		for (PieceModelInfo mi : piecesModelInfo)
 		{
 			mi.drawModel(P1, commandBuffer, currentImage, 1);
+		}
+
+		for (ModelInfo mi : piecesWireframeModelInfo)
+		{
+			mi.drawModel(PWireframe, commandBuffer, currentImage, 1);
 		}
 		backgroundModelInfo.drawModel(P1, commandBuffer, currentImage, 1);
 	}
