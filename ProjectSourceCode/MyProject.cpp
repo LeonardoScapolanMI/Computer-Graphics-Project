@@ -26,7 +26,7 @@ struct CompositionInfo {
 const float PIECES_BASE_Y = 0.127f;
 const float PIECES_ELEVATED_Y = 2 + PIECES_BASE_Y;
 const float OFFSET_COMPOSITION_X = 6.0f;
-const float OFFSET_COMPOSITION_Z = 6.0f;
+const float OFFSET_COMPOSITION_Z = 0.0f;
 
 const float FAR_PLANE = 100.0f;
 const float NEAR_PLANE = 0.1f;
@@ -107,7 +107,7 @@ const std::vector<CompositionInfo> COMPOSITION_INFOS = {
 			{
 				glm::vec3(135.0f, 0.0f, 0.0f),
 				glm::vec3(-(sqrt(2)/2) - (2 - sqrt(2)), 0.0f, 2- sqrt(2)),
-				glm::vec3(-1.0, -1.0, -1.0),
+				glm::vec3(1.0, 1.0, 1.0),
 			},
 			{
 				glm::vec3(45.0f, 0.0f, 0.0f),
@@ -116,7 +116,7 @@ const std::vector<CompositionInfo> COMPOSITION_INFOS = {
 			},
 			{
 				glm::vec3(-135.0f, 0.0f, 0.0f),
-				glm::vec3(-sqrt(2) + 0.13, 0.0f, -0.13),
+				glm::vec3(-2 + sqrt(2)/2, 0.0f, 2 - 3 * sqrt(2)/2),
 				glm::vec3(1.0, 1.0, 1.0),
 			},
 			{
@@ -162,6 +162,46 @@ const std::vector<CompositionInfo> COMPOSITION_INFOS = {
 			{
 				glm::vec3(-135.0f, 0.0f, 0.0f),
 				glm::vec3(2 - 1/sqrt(2), 0.0f, 2 + sqrt(2) * 3.0 / 2.0),
+				glm::vec3(1.0, 1.0, 1.0),
+			}
+		}
+	},
+	{
+		glm::vec3(OFFSET_COMPOSITION_X, PIECES_BASE_Y, OFFSET_COMPOSITION_Z),
+		{
+			{
+				glm::vec3(90.0f, 0.0f, 0.0f),
+				glm::vec3(1.0, 0.0f, 0.0),
+				glm::vec3(1.0, 1.0, 1.0)
+			},
+			{
+				glm::vec3(0.0f, 0.0f, 0.0f),
+				glm::vec3(-1.5, 0.0f, 1.5),
+				glm::vec3(1.0, 1.0, 1.0),
+			},
+			{
+				glm::vec3(180.0f, 0.0f, 0.0f),
+				glm::vec3(-0.5, 0.0f, 2.0),
+				glm::vec3(1.0, 1.0, 1.0),
+			},
+			{
+				glm::vec3(90.0f, 0.0f, 0.0f),
+				glm::vec3(-1.5f, 0.0f, 0.5f),
+				glm::vec3(-1.0, -1.0, -1.0),
+			},
+			{
+				glm::vec3(180.0f, 0.0f, 0.0f),
+				glm::vec3(0.0, 0.0f, 3.0f),
+				glm::vec3(1.0, 1.0, 1.0),
+			},
+			{
+				glm::vec3(180.0f, 0.0f, 0.0f),
+				glm::vec3(-1.0f, 0.0f, 0.0f),
+				glm::vec3(1.0, 1.0, 1.0),
+			},
+			{
+				glm::vec3(180.0f, 0.0f, 0.0f),
+				glm::vec3(1.0, 0.0f, 2.0),
 				glm::vec3(1.0, 1.0, 1.0),
 			}
 		}
@@ -490,7 +530,7 @@ public:
 	const void updatePreviewUBO(VkDevice device, uint32_t currentImage, bool visible) {
 		UniformBufferObject ubo;
 
-		glm::vec3 pos = glm::vec3(position.x, PIECES_BASE_Y, position.z);
+		glm::vec3 pos = glm::vec3(position.x, selected && visible ? PIECES_BASE_Y : -4.0f * scale.y, position.z);
 
 		ubo.model = MakeWorldMatrixEuler(pos, eulerRotation, scale) * glm::translate(glm::mat4(1), offset);
 		ubo.color = color;
@@ -760,14 +800,7 @@ class MyProject : public BaseProject {
 		trayModelInfo.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
 		//wireframe inizialization
-		/*
-		for (int i = 0; i < piecesWireframeModelInfo.size(); i++) {
-			RotationPositionscale rps = COMPOSITION_INFOS[0].compositionStructure[i];
-			piecesWireframeModelInfo[i].position = COMPOSITION_INFOS[0].position + rps.position;
-			piecesWireframeModelInfo[i].eulerRotation = rps.rotation;
-			piecesWireframeModelInfo[i].scale = rps.scale;
-		}
-		*/
+		selectCompositionWireframe(0);
 
 		//pieces position and color initialization
 		piecesModelInfo[0].position = glm::vec3(-1.0f, PIECES_BASE_Y, 0.0f);
@@ -1017,6 +1050,8 @@ class MyProject : public BaseProject {
 			that->selectCompositionWireframe(1);
 		if (key == GLFW_KEY_2 && action == GLFW_RELEASE)
 			that->selectCompositionWireframe(2);
+		if (key == GLFW_KEY_3 && action == GLFW_RELEASE)
+			that->selectCompositionWireframe(3);
 
 	}
 
