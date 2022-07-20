@@ -20,6 +20,7 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 #include <chrono>
 
@@ -996,7 +997,7 @@ protected:
 		imageInfo.usage = usage;
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		imageInfo.flags = imageCreateflags; // Default VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT
+		imageInfo.flags = imageCreateflags; // Default 0
 		
 		VkResult result = vkCreateImage(device, &imageInfo, nullptr, &image);
 		if (result != VK_SUCCESS) {
@@ -1112,7 +1113,7 @@ protected:
 	// New - Lesson 23
 	void transitionImageLayout(VkImage image, VkFormat format,
 					VkImageLayout oldLayout, VkImageLayout newLayout,
-					uint32_t mipLevels) {
+					uint32_t mipLevels, int layersCount = 1) {
 		VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
 		VkImageMemoryBarrier barrier{};
@@ -1127,14 +1128,23 @@ protected:
 		barrier.subresourceRange.baseMipLevel = 0;
 		barrier.subresourceRange.levelCount = mipLevels;
 		barrier.subresourceRange.baseArrayLayer = 0;
-		barrier.subresourceRange.layerCount = 1;
+		barrier.subresourceRange.layerCount = layersCount;
 
 		barrier.srcAccessMask = 0;
 		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 
+		VkPipelineStageFlags destinationStage;
+		if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED &&
+			newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+			destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		}
+		else {
+			destinationStage = VK_ACCESS_TRANSFER_WRITE_BIT;
+		}
+
 		vkCmdPipelineBarrier(commandBuffer,
 								VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-								VK_ACCESS_TRANSFER_WRITE_BIT, 0,
+			destinationStage, 0,
 								0, nullptr, 0, nullptr, 1, &barrier);
 
 		endSingleTimeCommands(commandBuffer);
@@ -1726,7 +1736,7 @@ void CubicTexture::createCubicTextureImage(const std::string file[6]) {
 		textureImageMemory, 6, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
 
 	BP->transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
-		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels);
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels, 6);
 	BP->copyBufferToImage(stagingBuffer, textureImage,
 		static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 6);
 
