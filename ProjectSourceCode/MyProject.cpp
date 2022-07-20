@@ -966,6 +966,12 @@ class MyProject : public BaseProject {
 		translation.z *= -1;
 
 		cameraPos += translation;
+
+		if (cameraPos.x < -PLANE_SCALE) cameraPos.x = -PLANE_SCALE;
+		if (cameraPos.x > PLANE_SCALE) cameraPos.x = PLANE_SCALE;
+		if (cameraPos.y < 0.5f) cameraPos.y = 0.5f;
+		if (cameraPos.z < -PLANE_SCALE) cameraPos.z = -PLANE_SCALE;
+		if (cameraPos.z > PLANE_SCALE) cameraPos.z = PLANE_SCALE;
 	}
 
 	void updateSelectedModelPosition(float deltaTime) {
