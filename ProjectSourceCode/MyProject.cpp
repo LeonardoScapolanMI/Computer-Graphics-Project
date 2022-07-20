@@ -103,7 +103,7 @@ const std::vector<uint32_t> planeIndices = {
 const float FAR_PLANE = 100.0f;
 const float NEAR_PLANE = 0.1f;
 
-const float PIECES_BASE_Y = 0.125f;
+const float PIECES_BASE_Y = 0.4f;
 const float PIECES_ELEVATED_Y = 2 + PIECES_BASE_Y;
 
 
@@ -147,6 +147,7 @@ struct globalUniformBufferObject {
 
 struct UniformBufferObject {
 	alignas(16) glm::mat4 model;
+	alignas(16) glm::mat4 normalMatrix;
 	alignas(16) glm::vec4 color;
 	alignas(4) float selected;
 };
@@ -219,8 +220,8 @@ public:
 		return model;
 	}
 
-	glm::vec3 getActualPosition() {
-		return position + offset;
+	glm::mat4 makeWorldMatrixEuler() {
+		return MakeWorldMatrixEuler(position, eulerRotation, scale) * glm::translate(glm::mat4(1), offset);
 	}
 
 	//TODO change formula to include rotation and scaling
@@ -252,9 +253,11 @@ public:
 	const void updateUBO(VkDevice device, uint32_t currentImage) {
 		UniformBufferObject ubo;
 
-		ubo.model = MakeWorldMatrixEuler(getActualPosition(), eulerRotation, scale);
+		ubo.model = makeWorldMatrixEuler();
 		ubo.color = color;
 		ubo.selected = 0.0f;
+
+		ubo.normalMatrix = glm::inverse(glm::transpose(glm::mat3(ubo.model)));
 
 		void* data;
 
@@ -267,7 +270,7 @@ public:
 	const void updateWUBO(VkDevice device, uint32_t currentImage) {
 		WireframeUniformBufferObject wubo;
 
-		wubo.model = MakeWorldMatrixEuler(getActualPosition(), eulerRotation, scale);
+		wubo.model = makeWorldMatrixEuler();
 		wubo.color = color;
 
 		void* data;
@@ -320,9 +323,11 @@ public:
 	const void updateUBO(VkDevice device, uint32_t currentImage) {
 		UniformBufferObject ubo;
 
-		ubo.model = MakeWorldMatrixEuler(getActualPosition(), eulerRotation, scale);
+		ubo.model = makeWorldMatrixEuler();
 		ubo.color = color;
 		ubo.selected = selected ? 1.0f : 0.0f;
+
+		ubo.normalMatrix = glm::inverse(glm::transpose(glm::mat3(ubo.model)));
 
 		void* data;
 
@@ -335,12 +340,14 @@ public:
 	const void updatePreviewUBO(VkDevice device, uint32_t currentImage, bool visible) {
 		UniformBufferObject ubo;
 
-		glm::vec3 pos = glm::vec3(getActualPosition().x, PIECES_BASE_Y + offset.y, getActualPosition().z);
+		glm::vec3 pos = glm::vec3(position.x, PIECES_BASE_Y, position.z);
 
-		ubo.model = MakeWorldMatrixEuler(pos, eulerRotation, scale);
+		ubo.model = MakeWorldMatrixEuler(pos, eulerRotation, scale) * glm::translate(glm::mat4(1), offset);
 		ubo.color = color;
 		ubo.color.a *= selected && visible ? 0.5f : 0.0f;
 		ubo.selected = 0.0f;
+
+		ubo.normalMatrix = glm::inverse(glm::transpose(glm::mat3(ubo.model)));
 
 		void* data;
 
@@ -710,7 +717,7 @@ class MyProject : public BaseProject {
 		vkUnmapMemory(device, globalDS.uniformBuffersMemory[0][currentImage]);
 
 		SkyBoxUniformBufferObject skbubo{};
-		skbubo.mvpMat = gubo.proj * gubo.view * MakeWorldMatrixEuler(skyBoxModelInfo.getActualPosition(), skyBoxModelInfo.eulerRotation, skyBoxModelInfo.scale);
+		skbubo.mvpMat = gubo.proj * gubo.view * skyBoxModelInfo.makeWorldMatrixEuler();
 		vkMapMemory(device, skyBoxModelInfo.DS.uniformBuffersMemory[0][currentImage], 0,
 			sizeof(skbubo), 0, &data);
 		memcpy(data, &skbubo, sizeof(skbubo));
@@ -725,6 +732,7 @@ class MyProject : public BaseProject {
 	static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 	{
 		static std::vector<int> modelToSkipIndexes = {};
+		static float nextYChangeAfterRotation = 0.25f;
 
 		MyProject* that = static_cast<MyProject*>(glfwGetWindowUserPointer(window));
 
@@ -746,6 +754,16 @@ class MyProject : public BaseProject {
 		if (that->selectionMode == SelectionState::TRANSLATION_MODE) {
 			if (key == GLFW_KEY_SPACE && action == GLFW_RELEASE) {
 				that->setSelectionMode(true);
+			}
+			if (key == GLFW_KEY_R && action == GLFW_RELEASE) {
+				that->piecesModelInfo[that->selectedPieceIndex].eulerRotation.z = 180 - that->piecesModelInfo[that->selectedPieceIndex].eulerRotation.z;
+				// that->piecesModelInfo[that->selectedPieceIndex].position.y += nextYChangeAfterRotation;
+				nextYChangeAfterRotation *= -1;
+			}
+			if (key == GLFW_KEY_T && action == GLFW_RELEASE) {
+				that->piecesModelInfo[that->selectedPieceIndex].eulerRotation.y = 180 - that->piecesModelInfo[that->selectedPieceIndex].eulerRotation.y;
+				// that->piecesModelInfo[that->selectedPieceIndex].position.y += nextYChangeAfterRotation;
+				nextYChangeAfterRotation *= -1;
 			}
 			return;
 		}
@@ -782,11 +800,11 @@ class MyProject : public BaseProject {
 		int newSelectedModelIndex = selectedPieceIndex;
 		std::optional<float> minDistance = std::nullopt;
 
-		glm::vec3 selectedModelPosition = piecesModelInfo[selectedPieceIndex].getActualPosition();
+		glm::vec3 selectedModelPosition = piecesModelInfo[selectedPieceIndex].position;
 
 		for (int i = 0; i < piecesModelInfo.size(); i++) {
 			PieceModelInfo model = piecesModelInfo[i];
-			glm::vec3 modelPos = model.getActualPosition();
+			glm::vec3 modelPos = model.position;
 
 			float angle = atan2(modelPos.z - selectedModelPosition.z, modelPos.x - selectedModelPosition.x);
 
@@ -945,16 +963,16 @@ class MyProject : public BaseProject {
 	void selectedModelTransition(float deltaTime) {
 		static float linearSpeed = 4.0f;
 
-		if (selectedModelTargetY > piecesModelInfo[selectedPieceIndex].getActualPosition().y) {
+		if (selectedModelTargetY > piecesModelInfo[selectedPieceIndex].position.y) {
 			piecesModelInfo[selectedPieceIndex].position.y += linearSpeed * deltaTime;
-			if (piecesModelInfo[selectedPieceIndex].getActualPosition().y >= selectedModelTargetY) {
+			if (piecesModelInfo[selectedPieceIndex].position.y >= selectedModelTargetY) {
 				piecesModelInfo[selectedPieceIndex].position.y = selectedModelTargetY;// -piecesModelInfo[selectedPieceIndex].offset.y;
 				selectionMode = nextSelectionMode;
 			}
 		}
 		else {
 			piecesModelInfo[selectedPieceIndex].position.y -= linearSpeed * deltaTime;
-			if (piecesModelInfo[selectedPieceIndex].getActualPosition().y <= selectedModelTargetY) {
+			if (piecesModelInfo[selectedPieceIndex].position.y <= selectedModelTargetY) {
 				piecesModelInfo[selectedPieceIndex].position.y = selectedModelTargetY;// -piecesModelInfo[selectedPieceIndex].offset.y;
 				selectionMode = nextSelectionMode;
 			}
@@ -966,6 +984,8 @@ class MyProject : public BaseProject {
 //THINGS MODIDIED ON MyProject.hpp
 //1759: modified color blending to include alpha blending
 //created CubicTexture and generalized functions called both from it and Texture
+//added option in DS::init to support Cubic Texture
+//added rasterizer option to have wireframes in Pieline::init
 
 
 // This is the main: probably you do not need to touch this!

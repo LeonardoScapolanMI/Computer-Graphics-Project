@@ -14,12 +14,13 @@ layout(set = 0, binding = 0) uniform globalUniformBufferObject {
 
 layout(set = 1, binding = 0) uniform UniformBufferObject {
 	mat4 model;
+	mat4 normalMatrix;
 	vec4 color;
 	float selected;
 } ubo;
 
 
-layout(location = 0) in vec3 fragViewDir;
+layout(location = 0) in vec3 fragPos;
 layout(location = 1) in vec3 fragNorm;
 layout(location = 2) in vec2 fragTexCoord;
 
@@ -43,16 +44,16 @@ void main() {
 	const float specPower = 32.0f;
 
 
-	vec3 lD = normalize(lightPos_Spot - fragViewDir); //light direction
+	vec3 lD = normalize(lightPos_Spot - fragPos); //light direction
 
-	float decay = pow(gubo.paramDecay.x / length(lightPos_Spot - fragViewDir), gubo.paramDecay.y);
+	float decay = pow(gubo.paramDecay.x / length(lightPos_Spot - fragPos), gubo.paramDecay.y);
 	float spotlightConeFactor = clamp((dot(direction_Spot, lD) - gubo.paramDecay.w)/(gubo.paramDecay.z - gubo.paramDecay.w), 0, 1);
 	vec3 lightColor = (lightColor_Spot * decay * spotlightConeFactor) + gubo.ambientLight;
 
 	vec3 N = normalize(fragNorm);
 	vec3 R = -reflect(lD, N);
-	vec3 V = normalize(fragViewDir);
-	vec3 EyeDir = normalize(gubo.eyePos.xyz - fragViewDir);
+	// vec3 V = normalize(fragPos);
+	vec3 EyeDir = normalize(gubo.eyePos.xyz - fragPos);
 	
 	// Lambert diffuse
 	vec3 diffuse  = diffColor * max(dot(N,lD), 0.0f);
