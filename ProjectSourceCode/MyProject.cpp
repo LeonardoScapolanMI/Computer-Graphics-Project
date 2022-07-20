@@ -25,8 +25,8 @@ struct CompositionInfo {
 
 const float PIECES_BASE_Y = 0.127f;
 const float PIECES_ELEVATED_Y = 2 + PIECES_BASE_Y;
-const float OFFSET_COMPOSITION_X = 5.0f;
-const float OFFSET_COMPOSITION_Z = 5.0f;
+const float OFFSET_COMPOSITION_X = 6.0f;
+const float OFFSET_COMPOSITION_Z = 6.0f;
 
 const float FAR_PLANE = 100.0f;
 const float NEAR_PLANE = 0.1f;
@@ -46,6 +46,46 @@ const std::vector<ModelPreInfo> PIECES_MODEL_PRE_INFO = {
 const ModelPreInfo SKYBOX_MODEL_PRE_INFO = { "models/SkyBoxCube.obj", glm::vec3(0), glm::vec3(0) };
 
 const std::vector<CompositionInfo> COMPOSITION_INFOS = {
+	{
+		glm::vec3(OFFSET_COMPOSITION_X, PIECES_BASE_Y, OFFSET_COMPOSITION_Z),
+		{
+			{
+				glm::vec3(0.0f, 0.0f, 0.0f),
+				glm::vec3(1.0, -4.0f, 0.0),
+				glm::vec3(1.0, 1.0, 1.0)
+			},
+			{
+				glm::vec3(0.0f, 0.0f, 0.0f),
+				glm::vec3(0.5, -4.0f, -1.5),
+				glm::vec3(1.0, 1.0, 1.0),
+			},
+			{
+				glm::vec3(0.0f, 0.0f, 0.0f),
+				glm::vec3(1.0, -4.0f, 0.0),
+				glm::vec3(1.0, 1.0, 1.0),
+			},
+			{
+				glm::vec3(135.0f, 0.0f, 0.0f),
+				glm::vec3(0.0, -4.0, 0.0),
+				glm::vec3(1.0, 1.0, 1.0),
+			},
+			{
+				glm::vec3(45.0f, 0.0f, 0.0f),
+				glm::vec3(1.0, -4.0, 0.0),
+				glm::vec3(1.0, 1.0, 1.0),
+			},
+			{
+				glm::vec3(-135.0f, 0.0f, 0.0f),
+				glm::vec3(0.0, -4.0, 0.0),
+				glm::vec3(1.0, 1.0, 1.0),
+			},
+			{
+				glm::vec3(0.0f, 0.0f, 0.0f),
+				glm::vec3(0.0, -4.0, 1.0),
+				glm::vec3(1.0, 1.0, 1.0),
+			}
+		}
+	},
 	{
 		glm::vec3(OFFSET_COMPOSITION_X, PIECES_BASE_Y, OFFSET_COMPOSITION_Z),
 		{
@@ -91,17 +131,17 @@ const std::vector<CompositionInfo> COMPOSITION_INFOS = {
 		{
 			{
 				glm::vec3(0.0f, 0.0f, 0.0f),
-				glm::vec3(1.0, 0.0f, 2.0),
+				glm::vec3(1.0, 0.0, 2.0),
 				glm::vec3(1.0, 1.0, 1.0)
 			},
 			{
 				glm::vec3(-45.0f, 0.0f, 0.0f),
-				glm::vec3(sqrt(2)/2, 0.0f, -sqrt(2)),
+				glm::vec3(sqrt(2)/2, 0.0, -sqrt(2)),
 				glm::vec3(1.0, 1.0, 1.0),
 			},
 			{
-				glm::vec3(0.0f, 0.0f, 0.0f),
-				glm::vec3(1.0, 0.0f, -2.0 - sqrt(2) - 0.5),
+				glm::vec3(-45.0f, 0.0f, 0.0f),
+				glm::vec3(0.5/sqrt(2) - sqrt(2), 0.0, (0.5/sqrt(2)) + 2.0 + sqrt(2)/2),
 				glm::vec3(1.0, 1.0, 1.0),
 			},
 			{
@@ -115,13 +155,13 @@ const std::vector<CompositionInfo> COMPOSITION_INFOS = {
 				glm::vec3(1.0, 1.0, 1.0),
 			},
 			{
-				glm::vec3(0.0f, 0.0f, 0.0f),
-				glm::vec3(-sqrt(2) + 0.13, 0.0f, -0.13),
+				glm::vec3(45.0f, 0.0f, 0.0f),
+				glm::vec3(-(1/sqrt(2)), 0.0f, 2.0),
 				glm::vec3(1.0, 1.0, 1.0),
 			},
 			{
-				glm::vec3(-180.0f, 0.0f, 0.0f),
-				glm::vec3(0.0, 0.0f, 4.0),
+				glm::vec3(-135.0f, 0.0f, 0.0f),
+				glm::vec3(2 - 1/sqrt(2), 0.0f, 4.0),
 				glm::vec3(1.0, 1.0, 1.0),
 			}
 		}
@@ -941,6 +981,8 @@ class MyProject : public BaseProject {
 			that->selectCompositionWireframe(0);
 		if (key == GLFW_KEY_1 && action == GLFW_RELEASE)
 			that->selectCompositionWireframe(1);
+		if (key == GLFW_KEY_2 && action == GLFW_RELEASE)
+			that->selectCompositionWireframe(2);
 
 	}
 
