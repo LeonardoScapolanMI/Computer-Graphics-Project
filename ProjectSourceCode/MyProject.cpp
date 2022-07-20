@@ -1109,7 +1109,7 @@ class MyProject : public BaseProject {
 		}
 
 		// rot.y *= -1;
-		// mov.y *= -1;
+		mov.y *= -1;
 
 		if(rot!=glm::vec3(0)) cameraQuat *= glm::rotate(glm::quat(1, 0, 0, 0), angularSpeed * deltaTime, rot);
 
