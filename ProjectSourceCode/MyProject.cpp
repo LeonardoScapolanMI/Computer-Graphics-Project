@@ -790,10 +790,6 @@ class MyProject : public BaseProject {
 		}
 	}
 
-	// std::vector<glm::vec3> ObjsPos;
-	// std::vector<glm::vec3> ObjsEuler;
-	// std::vector<glm::vec3> ObjsSize;
-
 	// Here is where you update the uniforms.
 	// Very likely this will be where you will be writing the logic of your application.
 	void updateUniformBuffer(uint32_t currentImage) {
@@ -974,14 +970,6 @@ class MyProject : public BaseProject {
 		translation.z *= -1;
 
 		cameraPos += translation;
-
-		/*viewMatrix = glm::translate(glm::mat4(1.0), linearSpeed * deltaTime * (-mov))
-			// * glm::rotate(glm::mat4(1.0), angularSpeed * deltaTime * rot.z, glm::vec3(0, 0, 1))
-			// * glm::rotate(glm::mat4(1.0), angularSpeed * deltaTime * rot.y, glm::vec3(0, 1, 0))
-			// * glm::rotate(glm::mat4(1.0), angularSpeed * deltaTime * rot.x, glm::vec3(1, 0, 0))
-			* viewMatrix*/;
-
-		//return viewMatrix;
 	}
 
 	void updateSelectedModelPosition(float deltaTime) {
