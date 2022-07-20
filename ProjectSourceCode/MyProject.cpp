@@ -8,11 +8,29 @@ struct ModelPreInfo {
 	glm::vec3 baricenterOffset;
 };
 
-struct CompositionStructure {
+
+struct RotationPositionscale {
 	glm::vec3 rotation;
 	glm::vec3 position;
 	glm::vec3 scale;
 };
+
+struct CompositionInfo {
+	glm::vec3 position;
+	std::vector<RotationPositionscale> compositionStructure;
+};
+
+
+
+
+const float PIECES_BASE_Y = 0.127f;
+const float PIECES_ELEVATED_Y = 2 + PIECES_BASE_Y;
+const float OFFSET_COMPOSITION_X = 5.0f;
+const float OFFSET_COMPOSITION_Z = 5.0f;
+
+const float FAR_PLANE = 100.0f;
+const float NEAR_PLANE = 0.1f;
+const float PLANE_SCALE = 15.0f;
 
 
 const ModelPreInfo TRAY_MODEL_PRE_INFO = { "models/tray.obj", glm::vec3(-2 - -2.001980, 0 - -0.030329, -2 - -2.116832), glm::vec3(0)};
@@ -27,6 +45,49 @@ const std::vector<ModelPreInfo> PIECES_MODEL_PRE_INFO = {
 };
 const ModelPreInfo SKYBOX_MODEL_PRE_INFO = { "models/SkyBoxCube.obj", glm::vec3(0), glm::vec3(0) };
 
+const std::vector<CompositionInfo> COMPOSITION_INFOS = {
+	{
+		glm::vec3(OFFSET_COMPOSITION_X, PIECES_BASE_Y, OFFSET_COMPOSITION_Z),
+		{
+			{
+				glm::vec3(180.0f, 0.0f, 0.0f),
+				glm::vec3(1.0, 0.0f, 0.0),
+				glm::vec3(1.0, 1.0, 1.0)
+			},
+			{
+				glm::vec3(90.0f, 0.0f, 0.0f),
+				glm::vec3(0.5, 0.0f, -1.5),
+				glm::vec3(1.0, 1.0, 1.0),
+			},
+			{
+				glm::vec3(-90.0f, 0.0f, 0.0f),
+				glm::vec3(1.0, 0.0f, -3.85),
+				glm::vec3(1.0, 1.0, 1.0),
+			},
+			{
+				glm::vec3(90.0f, 0.0f, 0.0f),
+				glm::vec3(-1.0, 0.0f, -0.5),
+				glm::vec3(-1.0, -1.0, -1.0),
+			},
+			{
+				glm::vec3(45.0f, 0.0f, 0.0f),
+				glm::vec3(1.0, 0.0f, -2.7),
+				glm::vec3(1.0, 1.0, 1.0),
+			},
+			{
+				glm::vec3(30.0f, 0.0f, 0.0f),
+				glm::vec3(-1.0, 0.0f, 0.0),
+				glm::vec3(1.0, 1.0, 1.0),
+			},
+			{
+				glm::vec3(0.0f, 0.0f, 0.0f),
+				glm::vec3(0.0, 0.0f, 1.0),
+				glm::vec3(1.0, 1.0, 1.0),
+			}
+		}
+	},
+};
+
 
 
 const std::string TRAY_TEXTURE_PATH = "textures/texture-background.jpg";
@@ -35,7 +96,6 @@ const std::string BACKGROUND_TEXTURE_PATH = "textures/background-plane.jpg";
 const std::string WHITE_TEXTURE_PATH = "textures/white.png";
 const std::string SKTBOX_TEXTURE_PATH[6] = { "textures/sky/posx.jpg", "textures/sky/negx.jpg", "textures/sky/posy.jpg", "textures/sky/negy.jpg", "textures/sky/posz.jpg", "textures/sky/negz.jpg" };
 
-const float PLANE_SCALE = 15.0f;
 const std::vector<Vertex> planeVertices = {
 	{
 		glm::vec3(-1, 0, -1),
@@ -105,14 +165,6 @@ const std::vector<uint32_t> planeIndices = {
 	8, 5, 9, 8, 4, 5,
 	9, 2, 1, 9, 10, 2
 };
-
-const float FAR_PLANE = 100.0f;
-const float NEAR_PLANE = 0.1f;
-
-const float PIECES_BASE_Y = 0.4f;
-const float PIECES_ELEVATED_Y = 2 + PIECES_BASE_Y;
-const float OFFSET_COMPOSITION_X = 5.0f;
-const float OFFSET_COMPOSITION_Z = 5.0f;
 
 
 // function to make a look in view matrix starting from the camera position and it's rotation (angles in degrees)
@@ -185,7 +237,6 @@ public:
 	glm::vec4 color;
 	glm::vec3 offset;
 	glm::vec3 baricenterOffset;
-	CompositionStructure comParameter;
 
 	ModelInfo() {
 		position = position = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -194,9 +245,6 @@ public:
 		color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 		offset = glm::vec3(0.0f, 0.0f, 0.0f);
 		baricenterOffset = glm::vec3(0.0f, 0.0f, 0.0f);
-		comParameter.rotation = glm::vec3(0.0f, 0.0f, 0.0f);
-		comParameter.position = glm::vec3(0.0f, 0.0f, 0.0f);
-		comParameter.scale = glm::vec3(1.0f, 1.0f, 1.0f);
 	}
 
 	ModelInfo(BaseProject* pj, ModelPreInfo mpi) {
@@ -236,7 +284,6 @@ public:
 		return MakeWorldMatrixEuler(position, eulerRotation, scale) * glm::translate(glm::mat4(1), offset);
 	}
 
-	//TODO change formula to include rotation and scaling
 	glm::vec3 baricenterPosition() {
 		return position + glm::vec3(MakeWorldMatrixEuler(glm::vec3(0), eulerRotation, scale) * glm::vec4(baricenterOffset, 0.0f));
 	}
@@ -616,34 +663,13 @@ class MyProject : public BaseProject {
 		trayModelInfo.position = glm::vec3(0.0f, 0.0f, 0.0f);
 		trayModelInfo.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
-		//pieces compositions rotation, position, color, inizialization
-		piecesWireframeModelInfo[0].comParameter.rotation = glm::vec3(180.0f, 0.0f, 0.0f);
-		piecesWireframeModelInfo[0].comParameter.position = glm::vec3(1.0 + OFFSET_COMPOSITION_X, PIECES_BASE_Y, 0.0 + OFFSET_COMPOSITION_Z);
-		piecesWireframeModelInfo[0].comParameter.scale = glm::vec3(1.0, 1.0, 1.0);
-
-		piecesWireframeModelInfo[1].comParameter.rotation = glm::vec3(90.0f, 0.0f, 0.0f);
-		piecesWireframeModelInfo[1].comParameter.position = glm::vec3(0.5 + OFFSET_COMPOSITION_X, PIECES_BASE_Y, -1.5 + OFFSET_COMPOSITION_Z);
-		piecesWireframeModelInfo[1].comParameter.scale = glm::vec3(1.0, 1.0, 1.0);
-
-		piecesWireframeModelInfo[2].comParameter.rotation = glm::vec3(-90.0f, 0.0f, 0.0f);
-		piecesWireframeModelInfo[2].comParameter.position = glm::vec3(1.0 + OFFSET_COMPOSITION_X, PIECES_BASE_Y, -3.85 + OFFSET_COMPOSITION_Z);
-		piecesWireframeModelInfo[2].comParameter.scale = glm::vec3(1.0, 1.0, 1.0);
-
-		piecesWireframeModelInfo[3].comParameter.rotation = glm::vec3(90.0f, 0.0f, 0.0f);
-		piecesWireframeModelInfo[3].comParameter.position = glm::vec3(-1.0 + OFFSET_COMPOSITION_X, PIECES_BASE_Y, -0.5 + OFFSET_COMPOSITION_Z);
-		piecesWireframeModelInfo[3].comParameter.scale = glm::vec3(-1.0, -1.0, -1.0);
-
-		piecesWireframeModelInfo[4].comParameter.rotation = glm::vec3(45.0f, 0.0f, 0.0f);
-		piecesWireframeModelInfo[4].comParameter.position = glm::vec3(1.0 + OFFSET_COMPOSITION_X, PIECES_BASE_Y, -2.7 + OFFSET_COMPOSITION_Z);
-		piecesWireframeModelInfo[4].comParameter.scale = glm::vec3(1.0, 1.0, 1.0);
-
-		piecesWireframeModelInfo[5].comParameter.rotation = glm::vec3(30.0f, 0.0f, 0.0f);
-		piecesWireframeModelInfo[5].comParameter.position = glm::vec3(-1.0 + OFFSET_COMPOSITION_X, PIECES_BASE_Y, 0.0 + OFFSET_COMPOSITION_Z);
-		piecesWireframeModelInfo[5].comParameter.scale = glm::vec3(1.0, 1.0, 1.0);
-
-		piecesWireframeModelInfo[6].comParameter.rotation = glm::vec3(0.0f, 0.0f, 0.0f);
-		piecesWireframeModelInfo[6].comParameter.position = glm::vec3(0.0 + OFFSET_COMPOSITION_X, PIECES_BASE_Y, 1.0 + OFFSET_COMPOSITION_Z);
-		piecesWireframeModelInfo[6].comParameter.scale = glm::vec3(1.0, 1.0, 1.0);
+		//wireframe inizialization
+		for (int i = 0; i < piecesWireframeModelInfo.size(); i++) {
+			RotationPositionscale rps = COMPOSITION_INFOS[0].compositionStructure[i];
+			piecesWireframeModelInfo[i].position = COMPOSITION_INFOS[0].position + rps.position;
+			piecesWireframeModelInfo[i].eulerRotation = rps.rotation;
+			piecesWireframeModelInfo[i].scale = rps.scale;
+		}
 
 		//pieces position and color initialization
 		piecesModelInfo[0].position = glm::vec3(-1.0f, PIECES_BASE_Y, 0.0f);
@@ -653,33 +679,6 @@ class MyProject : public BaseProject {
 		piecesModelInfo[4].position = glm::vec3(0.0f, PIECES_BASE_Y, -1.0f);
 		piecesModelInfo[5].position = glm::vec3(-1.0f, PIECES_BASE_Y, -2.0f);
 		piecesModelInfo[6].position = glm::vec3(0.0f, PIECES_BASE_Y, 1.0f);
-
-		//wireframe inizialization
-
-		piecesWireframeModelInfo[0].eulerRotation = piecesWireframeModelInfo[0].comParameter.rotation;
-		piecesWireframeModelInfo[1].eulerRotation = piecesWireframeModelInfo[1].comParameter.rotation;
-		piecesWireframeModelInfo[2].eulerRotation = piecesWireframeModelInfo[2].comParameter.rotation;
-		piecesWireframeModelInfo[3].eulerRotation = piecesWireframeModelInfo[3].comParameter.rotation;
-		piecesWireframeModelInfo[4].eulerRotation = piecesWireframeModelInfo[4].comParameter.rotation;
-		piecesWireframeModelInfo[5].eulerRotation = piecesWireframeModelInfo[5].comParameter.rotation;
-		piecesWireframeModelInfo[6].eulerRotation = piecesWireframeModelInfo[6].comParameter.rotation;
-		
-
-		piecesWireframeModelInfo[0].position = piecesWireframeModelInfo[0].comParameter.position;
-		piecesWireframeModelInfo[1].position = piecesWireframeModelInfo[1].comParameter.position;
-		piecesWireframeModelInfo[2].position = piecesWireframeModelInfo[2].comParameter.position;
-		piecesWireframeModelInfo[3].position = piecesWireframeModelInfo[3].comParameter.position;
-		piecesWireframeModelInfo[4].position = piecesWireframeModelInfo[4].comParameter.position;
-		piecesWireframeModelInfo[5].position = piecesWireframeModelInfo[5].comParameter.position;
-		piecesWireframeModelInfo[6].position = piecesWireframeModelInfo[6].comParameter.position;
-
-		piecesWireframeModelInfo[0].scale = piecesWireframeModelInfo[0].comParameter.scale;
-		piecesWireframeModelInfo[1].scale = piecesWireframeModelInfo[1].comParameter.scale;
-		piecesWireframeModelInfo[2].scale = piecesWireframeModelInfo[2].comParameter.scale;
-		piecesWireframeModelInfo[3].scale = piecesWireframeModelInfo[3].comParameter.scale;
-		piecesWireframeModelInfo[4].scale = piecesWireframeModelInfo[4].comParameter.scale;
-		piecesWireframeModelInfo[5].scale = piecesWireframeModelInfo[5].comParameter.scale;
-		piecesWireframeModelInfo[6].scale = piecesWireframeModelInfo[6].comParameter.scale;
 
 		/*piecesModelInfo[0].color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
 		piecesModelInfo[1].color = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
@@ -840,16 +839,13 @@ class MyProject : public BaseProject {
 			gubo.spotlight_pos = glm::vec3(compositionBaricenterPosition.x, 6.0f, compositionBaricenterPosition.z);
 			break;
 		case VisualizationMode::SPOTLIGHT_ON_SELECTED_PIECE:
-			gubo.paramDecay = glm::vec4(8.0f, 1.0f, 0.96f, 0.93f); //g, decay, Cin, Cout
-
+			float spotlightY = 30.0f;
 			glm::vec3 selectedPieceBaricenterPosition = piecesModelInfo[selectedPieceIndex].baricenterPosition();
-			gubo.spotlight_pos = glm::vec3(selectedPieceBaricenterPosition.x, 6.0f, selectedPieceBaricenterPosition.z);
-			break;
-		default:
-			gubo.paramDecay = glm::vec4(8.0f, 1.0f, 0.96f, 0.93f); //g, decay, Cin, Cout
+			gubo.spotlight_pos = glm::vec3(selectedPieceBaricenterPosition.x, spotlightY, selectedPieceBaricenterPosition.z);
 
-			selectedPieceBaricenterPosition = piecesModelInfo[selectedPieceIndex].baricenterPosition();
-			gubo.spotlight_pos = glm::vec3(selectedPieceBaricenterPosition.x, 6.0f, selectedPieceBaricenterPosition.z);
+			gubo.paramDecay = glm::vec4(40.0f, 1.0f, spotlightY / sqrt(spotlightY * spotlightY + 2 * 2), spotlightY / sqrt(spotlightY * spotlightY + 2.5 * 2.5)); //g, decay, Cin, Cout
+
+			break;
 		}
 
 
