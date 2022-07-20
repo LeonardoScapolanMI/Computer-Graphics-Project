@@ -401,6 +401,92 @@ class MyProject : public BaseProject {
 	glm::vec3 cameraPos = glm::vec3(0.0f, 8.0f, 0.0f);
 	glm::vec3 cameraYPR = glm::vec3(0.0f, -90.0f, 0.0f);
 
+	static void pieceMovementKey_callback(MyProject* that, int key, int scancode, int action, int mods) {
+		static std::vector<int> modelToSkipIndexes = {};
+
+		if (that->selectionMode == SelectionState::TRANSITION) return;
+
+		if (that->selectionMode == SelectionState::TRANSLATION_MODE) {
+			if (key == GLFW_KEY_SPACE && action == GLFW_RELEASE) {
+				that->setSelectionMode(true);
+			}
+			if (key == GLFW_KEY_R && action == GLFW_RELEASE) {
+				that->piecesModelInfo[that->selectedPieceIndex].eulerRotation.z = 180 - that->piecesModelInfo[that->selectedPieceIndex].eulerRotation.z;
+			}
+			if (key == GLFW_KEY_T && action == GLFW_RELEASE) {
+				that->piecesModelInfo[that->selectedPieceIndex].eulerRotation.y = 180 - that->piecesModelInfo[that->selectedPieceIndex].eulerRotation.y;
+			}
+			return;
+		}
+
+		float angleMin;
+		float angleMax;
+		if (key == GLFW_KEY_D && action == GLFW_RELEASE) {
+			angleMin = glm::radians(-45.0f);
+			angleMax = glm::radians(45.0f);
+		}
+		else if (key == GLFW_KEY_S && action == GLFW_RELEASE) {
+			angleMin = glm::radians(45.0f);
+			angleMax = glm::radians(135.0f);
+		}
+		else if (key == GLFW_KEY_A && action == GLFW_RELEASE) {
+			angleMin = glm::radians(135.0f);
+			angleMax = glm::radians(-135.0f);
+		}
+		else if (key == GLFW_KEY_W && action == GLFW_RELEASE) {
+			angleMin = glm::radians(-135.0f);
+			angleMax = glm::radians(-45.0f);
+		}
+		else if (key == GLFW_KEY_SPACE && action == GLFW_RELEASE) {
+			that->setSelectionMode(false);
+			return;
+		}
+		else {
+			return;
+		}
+
+		int selectedPieceIndex = that->selectedPieceIndex;
+		std::vector<PieceModelInfo> piecesModelInfo = that->piecesModelInfo;
+
+		int newSelectedModelIndex = selectedPieceIndex;
+		std::optional<float> minDistance = std::nullopt;
+
+		glm::vec3 selectedModelPosition = piecesModelInfo[selectedPieceIndex].position;
+
+		for (int i = 0; i < piecesModelInfo.size(); i++) {
+			PieceModelInfo model = piecesModelInfo[i];
+			glm::vec3 modelPos = model.position;
+
+			float angle = atan2(modelPos.z - selectedModelPosition.z, modelPos.x - selectedModelPosition.x);
+
+			bool isInCorrectDirection;
+			if (angleMin <= angleMax)
+				isInCorrectDirection = angleMin <= angle && angle <= angleMax;
+			else
+				isInCorrectDirection = (angleMin <= angle && angle <= glm::radians(180.0f)) || (glm::radians(-180.0f) <= angle && angle <= angleMax);
+
+			if (i != selectedPieceIndex && isInCorrectDirection && std::count(modelToSkipIndexes.begin(), modelToSkipIndexes.end(), i) == 0) {
+				// std::cerr << "hit " << i << std::endl;
+				float squaredDistance = (modelPos.x - selectedModelPosition.x) * (modelPos.x - selectedModelPosition.x) + (modelPos.z - selectedModelPosition.z) * (modelPos.z - selectedModelPosition.z);
+				if (!minDistance.has_value() || squaredDistance < minDistance) {
+					minDistance = squaredDistance;
+					newSelectedModelIndex = i;
+				}
+			}
+		}
+
+		if (minDistance.value_or(-1) == 0) {
+			modelToSkipIndexes.push_back(selectedPieceIndex);
+		}
+		else {
+			modelToSkipIndexes.clear();
+		}
+
+		// std::cerr << modelToSkipIndexes.size() << std::endl;
+
+		that->selectPiece(newSelectedModelIndex);
+	}
+
 	protected:
 	// Here you list all the Vulkan objects you need:
 	
@@ -791,9 +877,6 @@ class MyProject : public BaseProject {
 	//FUNCTION DEFINITION
 	static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 	{
-		static std::vector<int> modelToSkipIndexes = {};
-		static float nextYChangeAfterRotation = 0.25f;
-
 		MyProject* that = static_cast<MyProject*>(glfwGetWindowUserPointer(window));
 
 		if (key == GLFW_KEY_M && action == GLFW_RELEASE) {
@@ -809,91 +892,7 @@ class MyProject : public BaseProject {
 			}
 		}
 
-		if (that->selectionMode == SelectionState::TRANSITION) return;
-
-		if (that->selectionMode == SelectionState::TRANSLATION_MODE) {
-			if (key == GLFW_KEY_SPACE && action == GLFW_RELEASE) {
-				that->setSelectionMode(true);
-			}
-			if (key == GLFW_KEY_R && action == GLFW_RELEASE) {
-				that->piecesModelInfo[that->selectedPieceIndex].eulerRotation.z = 180 - that->piecesModelInfo[that->selectedPieceIndex].eulerRotation.z;
-				// that->piecesModelInfo[that->selectedPieceIndex].position.y += nextYChangeAfterRotation;
-				nextYChangeAfterRotation *= -1;
-			}
-			if (key == GLFW_KEY_T && action == GLFW_RELEASE) {
-				that->piecesModelInfo[that->selectedPieceIndex].eulerRotation.y = 180 - that->piecesModelInfo[that->selectedPieceIndex].eulerRotation.y;
-				// that->piecesModelInfo[that->selectedPieceIndex].position.y += nextYChangeAfterRotation;
-				nextYChangeAfterRotation *= -1;
-			}
-			return;
-		}
-
-		float angleMin;
-		float angleMax;
-		if (key == GLFW_KEY_D && action == GLFW_RELEASE) {
-			angleMin = glm::radians(-45.0f);
-			angleMax = glm::radians(45.0f);
-		}
-		else if (key == GLFW_KEY_S && action == GLFW_RELEASE) {
-			angleMin = glm::radians(45.0f);
-			angleMax = glm::radians(135.0f);
-		}
-		else if (key == GLFW_KEY_A && action == GLFW_RELEASE) {
-			angleMin = glm::radians(135.0f);
-			angleMax = glm::radians(-135.0f);
-		}
-		else if (key == GLFW_KEY_W && action == GLFW_RELEASE) {
-			angleMin = glm::radians(-135.0f);
-			angleMax = glm::radians(-45.0f);
-		}
-		else if (key == GLFW_KEY_SPACE && action == GLFW_RELEASE) {
-			that->setSelectionMode(false);
-			return;
-		}
-		else {
-			return;
-		}
-
-		int selectedPieceIndex = that->selectedPieceIndex;
-		std::vector<PieceModelInfo> piecesModelInfo = that->piecesModelInfo;
-
-		int newSelectedModelIndex = selectedPieceIndex;
-		std::optional<float> minDistance = std::nullopt;
-
-		glm::vec3 selectedModelPosition = piecesModelInfo[selectedPieceIndex].position;
-
-		for (int i = 0; i < piecesModelInfo.size(); i++) {
-			PieceModelInfo model = piecesModelInfo[i];
-			glm::vec3 modelPos = model.position;
-
-			float angle = atan2(modelPos.z - selectedModelPosition.z, modelPos.x - selectedModelPosition.x);
-
-			bool isInCorrectDirection;
-			if (angleMin <= angleMax)
-				isInCorrectDirection = angleMin <= angle && angle <= angleMax;
-			else
-				isInCorrectDirection = (angleMin <= angle && angle <= glm::radians(180.0f)) || (glm::radians(-180.0f) <= angle && angle <= angleMax);
-
-			if (i != selectedPieceIndex && isInCorrectDirection && std::count(modelToSkipIndexes.begin(), modelToSkipIndexes.end(), i)==0) {
-				// std::cerr << "hit " << i << std::endl;
-				float squaredDistance = (modelPos.x - selectedModelPosition.x) * (modelPos.x - selectedModelPosition.x) + (modelPos.z - selectedModelPosition.z) * (modelPos.z - selectedModelPosition.z);
-				if (!minDistance.has_value() || squaredDistance < minDistance) {
-					minDistance = squaredDistance;
-					newSelectedModelIndex = i;
-				}
-			}
-		}
-
-		if (minDistance.value_or(-1) == 0) {
-			modelToSkipIndexes.push_back(selectedPieceIndex);
-		}
-		else {
-			modelToSkipIndexes.clear();
-		}
-
-		// std::cerr << modelToSkipIndexes.size() << std::endl;
-
-		that->selectPiece(newSelectedModelIndex);
+		pieceMovementKey_callback(that, key, scancode, action, mods);
 	}
 
 	void selectPiece(int index) {
