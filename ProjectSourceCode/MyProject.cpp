@@ -146,8 +146,8 @@ const std::vector<CompositionInfo> COMPOSITION_INFOS = {
 			},
 			{
 				glm::vec3(30.0f, 0.0f, 0.0f),
-				glm::vec3(-sqrt(2.5)*sin(glm::radians(30.0 + (float)(45.0 / 2.0))), 0.0, -sqrt(2) / 2 - sqrt(2.5)*cos(glm::radians(30.0 + (float)(45.0 / 2.0)))),
-				glm::vec3(-1.0, -1.0, -1.0),
+				glm::vec3(-sqrt(2.5) * sin(glm::radians(30.0 + 18.47)), 0.0, -sqrt(2) / 2 - sqrt(2.5) * cos(glm::radians(30.0 + 18.47))),
+				glm::vec3(1.0, 1.0, 1.0),
 			},
 			{
 				glm::vec3(45.0f, 0.0f, 0.0f),
@@ -161,7 +161,7 @@ const std::vector<CompositionInfo> COMPOSITION_INFOS = {
 			},
 			{
 				glm::vec3(-135.0f, 0.0f, 0.0f),
-				glm::vec3(2 - 1/sqrt(2), 0.0f, 4.0),
+				glm::vec3(2 - 1/sqrt(2), 0.0f, 2 + sqrt(2) * 3.0 / 2.0),
 				glm::vec3(1.0, 1.0, 1.0),
 			}
 		}
