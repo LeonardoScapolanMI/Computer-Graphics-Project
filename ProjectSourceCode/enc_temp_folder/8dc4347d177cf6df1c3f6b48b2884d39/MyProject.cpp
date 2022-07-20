@@ -217,13 +217,6 @@ glm::mat4 lookIn(glm::vec3 cameraPos, glm::vec3 YPR) {
 		* glm::translate(glm::mat4(1.0), -cameraPos);
 }
 
-// function to make a look in view matrix starting from the camera position and it's rotation
-// cameraPos: coordinates of the camera
-// q: quaternion expressing the rotation
-glm::mat4 lookIn(glm::vec3 cameraPos, glm::quat q) {
-	return glm::mat4(q) * glm::translate(glm::mat4(1.0), -cameraPos);
-}
-
 // function to make a world matrix starting from the object position, rotation (angles in degrees) and scale
 // pos: coordinates of the object
 // YPR: yaw(x), pitch(y) and roll(z) of the object
@@ -242,10 +235,11 @@ glm::mat4 MakeWorldMatrixEuler(glm::vec3 pos, glm::vec3 YPR, glm::vec3 size) {
 
 
 // The uniform buffer object that will be fed to the pipline
-struct GlobalUniformBufferObject {
+struct globalUniformBufferObject {
 	alignas(16) glm::mat4 view;
 	alignas(16) glm::mat4 proj;
 	alignas(16) glm::vec3 ambientLight;
+	alignas(16) glm::vec3 ambientLightDirection;
 	alignas(16) glm::vec3 eyePos;
 	alignas(16) glm::vec4 paramDecay;
 	alignas(16) glm::vec3 spotlight_pos;
@@ -256,11 +250,6 @@ struct UniformBufferObject {
 	alignas(16) glm::mat4 normalMatrix;
 	alignas(16) glm::vec4 color;
 	alignas(4) float selected;
-};
-
-struct WireframeGlobalUniformBufferObject {
-	alignas(16) glm::mat4 view;
-	alignas(16) glm::mat4 proj;
 };
 
 struct WireframeUniformBufferObject {
@@ -497,8 +486,7 @@ class MyProject : public BaseProject {
 	SelectionState nextSelectionMode = SelectionState::SELECTION_MODE;
 
 	glm::vec3 cameraPos = glm::vec3(0.0f, 8.0f, 0.0f);
-	// glm::vec3 cameraYPR = glm::vec3(0.0f, -90.0f, 0.0f);
-	glm::quat cameraQuat = glm::rotate(glm::quat(1, 0, 0, 0), glm::radians(90.0f), glm::vec3(1, 0, 0));
+	glm::vec3 cameraYPR = glm::vec3(0.0f, -90.0f, 0.0f);
 
 	static void pieceMovementKey_callback(MyProject* that, int key, int scancode, int action, int mods) {
 		static std::vector<int> modelToSkipIndexes = {};
@@ -594,7 +582,6 @@ class MyProject : public BaseProject {
 	DescriptorSetLayout DSLobj;
 	DescriptorSetLayout DSLSkyBox;
 	DescriptorSetLayout DSLWireframe;
-	DescriptorSetLayout DSLGlobalWireframe;
 
 	// Pipelines [Shader couples]
 	Pipeline P1;
@@ -614,7 +601,6 @@ class MyProject : public BaseProject {
 	Texture pieceTexture;
 	Texture backgroundTexture;
 	DescriptorSet globalDS;
-	DescriptorSet globalWireframeDS;
 
 
 
@@ -629,9 +615,9 @@ class MyProject : public BaseProject {
 		initialBackgroundColor = {0.0f, 0.0f, 0.0f, 1.0f};
 		
 		// Descriptor pool sizes
-		uniformBlocksInPool = 2 + 1 + 3 * PIECES_MODEL_PRE_INFO.size() + 1 + 1; //2 global + 1 per model (tray, pieces, background, wireframe) and another for each piece + skybox
+		uniformBlocksInPool = 1 + 1 + 3 * PIECES_MODEL_PRE_INFO.size() + 1 + 1; //global + 1 per model (tray, pieces, background, wireframe) and another for each piece + skybox
 		texturesInPool = 4;
-		setsInPool = 2 + 1 + 3 * PIECES_MODEL_PRE_INFO.size() + 1 + 1;
+		setsInPool = 1 + 1 + 3 * PIECES_MODEL_PRE_INFO.size() + 1 + 1;
 	}
 
 	// Here you load and setup all your Vulkan objects
@@ -643,6 +629,7 @@ class MyProject : public BaseProject {
 					// second element : the time of element (buffer or texture)
 					// third  element : the pipeline stage where it will be used
 					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS}
+					// {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
 				  });
 
 		DSLobj.init(this, {
@@ -657,10 +644,7 @@ class MyProject : public BaseProject {
 
 		DSLWireframe.init(this, {
 					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS},
-			});
-
-		DSLGlobalWireframe.init(this, {
-					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS},
+					//{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
 			});
 
 		// Pipelines [Shader couples]
@@ -668,7 +652,7 @@ class MyProject : public BaseProject {
 		// be used in this pipeline. The first element will be set 0, and so on..
 		P1.init(this, "shaders/vert.spv", "shaders/frag.spv", { &DSLglobal, &DSLobj });
 		PSkyBox.init(this, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", { &DSLSkyBox }, VK_COMPARE_OP_LESS_OR_EQUAL);
-		PWireframe.init(this, "shaders/WireframeVert.spv", "shaders/WireframeFrag.spv", { &DSLGlobalWireframe, &DSLWireframe }, true);
+		PWireframe.init(this, "shaders/WireframeVert.spv", "shaders/WireframeFrag.spv", { &DSLglobal, &DSLWireframe }, true);
 
 
 		// Models, textures and Descriptors (values assigned to the uniforms)
@@ -772,17 +756,8 @@ class MyProject : public BaseProject {
 		// second element : UNIFORM or TEXTURE (an enum) depending on the type
 		// third  element : only for UNIFORMs, the size of the corresponding C++ object
 		// fourth element : only for TEXTUREs, the pointer to the corresponding texture object
-					{0, UNIFORM, sizeof(GlobalUniformBufferObject), nullptr, nullptr}
+					{0, UNIFORM, sizeof(globalUniformBufferObject), nullptr, nullptr}
 				});
-		globalWireframeDS.init(this, &DSLglobal, {
-			// the second parameter, is a pointer to the Uniform Set Layout of this set
-			// the last parameter is an array, with one element per binding of the set.
-			// first  elmenet : the binding number
-			// second element : UNIFORM or TEXTURE (an enum) depending on the type
-			// third  element : only for UNIFORMs, the size of the corresponding C++ object
-			// fourth element : only for TEXTUREs, the pointer to the corresponding texture object
-						{0, UNIFORM, sizeof(WireframeGlobalUniformBufferObject), nullptr, nullptr}
-			});
 
 		glfwSetWindowUserPointer(window, this);
 		glfwSetKeyCallback(window, key_callback);
@@ -793,10 +768,8 @@ class MyProject : public BaseProject {
 		trayTexture.cleanup();
 		pieceTexture.cleanup();
 		skyBoxTexture.cleanup();
-
 		globalDS.cleanup();
-		globalWireframeDS.cleanup();
-		
+
 		skyBoxModelInfo.cleanup();
 		trayModelInfo.cleanup();
 		for (PieceModelInfo mi : piecesModelInfo)
@@ -814,12 +787,10 @@ class MyProject : public BaseProject {
 		P1.cleanup();
 		PSkyBox.cleanup();
 		PWireframe.cleanup();
-
 		DSLglobal.cleanup();
 		DSLobj.cleanup();
 		DSLSkyBox.cleanup();
 		DSLWireframe.cleanup();
-		DSLGlobalWireframe.cleanup();
 	}
 	
 	// Here it is the creation of the command buffer:
@@ -887,24 +858,19 @@ class MyProject : public BaseProject {
 		updateCameraPos(dt);
 
 		void* data;
-		GlobalUniformBufferObject gubo{};
-		gubo.view = lookIn(cameraPos, cameraQuat);
+		globalUniformBufferObject gubo{};
+		gubo.view = lookIn(cameraPos, cameraYPR);
 		gubo.proj = glm::perspective(glm::radians(45.0f),
 			swapChainExtent.width / (float)swapChainExtent.height,
 			NEAR_PLANE, FAR_PLANE);
 		gubo.proj[1][1] *= -1;
 		gubo.eyePos = cameraPos;
 		gubo.ambientLight = glm::vec3(0.3f, 0.3f, 0.3f);
-
-		static const float spotlightY = 20.0f;
-		static const float CCin = spotlightY / sqrt(spotlightY * spotlightY + 4 * 4);
-		static const float CCout = spotlightY / sqrt(spotlightY * spotlightY + 5 * 5);
-		static const float SPCin = spotlightY / sqrt(spotlightY * spotlightY + 2.3 * 2.3);
-		static const float SPCout = spotlightY / sqrt(spotlightY * spotlightY + 2.8 * 2.8);
+		gubo.ambientLightDirection = glm::vec3(0.0f, -1.0f, 0.0f);
 
 		switch (visualizationMode) {
 		case VisualizationMode::SPOTLIGHT_ON_COMPOSITION:
-			gubo.paramDecay = glm::vec4(15.0f, 1.0f, CCin, CCout); //g, decay, Cin, Cout
+			gubo.paramDecay = glm::vec4(8.0f, 1.0f, 0.80f, 0.75f); //g, decay, Cin, Cout
 
 			glm::vec3 compositionBaricenterPosition = glm::vec3(0);
 			for (PieceModelInfo pmi : piecesModelInfo) {
@@ -912,13 +878,14 @@ class MyProject : public BaseProject {
 			}
 			compositionBaricenterPosition /= piecesModelInfo.size();
 
-			gubo.spotlight_pos = glm::vec3(compositionBaricenterPosition.x, spotlightY, compositionBaricenterPosition.z);
+			gubo.spotlight_pos = glm::vec3(compositionBaricenterPosition.x, 6.0f, compositionBaricenterPosition.z);
 			break;
 		case VisualizationMode::SPOTLIGHT_ON_SELECTED_PIECE:
+			float spotlightY = 20.0f;
 			glm::vec3 selectedPieceBaricenterPosition = piecesModelInfo[selectedPieceIndex].baricenterPosition();
 			gubo.spotlight_pos = glm::vec3(selectedPieceBaricenterPosition.x, spotlightY, selectedPieceBaricenterPosition.z);
 
-			gubo.paramDecay = glm::vec4(17.0f, 1.0f, SPCin, SPCout); //g, decay, Cin, Cout
+			gubo.paramDecay = glm::vec4(20.0f, 1.0f, spotlightY / sqrt(spotlightY * spotlightY + 2 * 2), spotlightY / sqrt(spotlightY * spotlightY + 2.5 * 2.5)); //g, decay, Cin, Cout
 
 			break;
 		}
@@ -929,23 +896,14 @@ class MyProject : public BaseProject {
 		memcpy(data, &gubo, sizeof(gubo));
 		vkUnmapMemory(device, globalDS.uniformBuffersMemory[0][currentImage]);
 
-
-		WireframeGlobalUniformBufferObject wgubo{};
-		wgubo.view = gubo.view;
-		wgubo.proj = gubo.view;
-
-		vkMapMemory(device, globalWireframeDS.uniformBuffersMemory[0][currentImage], 0,
-			sizeof(wgubo), 0, &data);
-		memcpy(data, &wgubo, sizeof(wgubo));
-		vkUnmapMemory(device, globalWireframeDS.uniformBuffersMemory[0][currentImage]);
-
-
 		SkyBoxUniformBufferObject skbubo{};
 		skbubo.mvpMat = gubo.proj * gubo.view * skyBoxModelInfo.makeWorldMatrixEuler();
 		vkMapMemory(device, skyBoxModelInfo.DS.uniformBuffersMemory[0][currentImage], 0,
 			sizeof(skbubo), 0, &data);
 		memcpy(data, &skbubo, sizeof(skbubo));
 		vkUnmapMemory(device, skyBoxModelInfo.DS.uniformBuffersMemory[0][currentImage]);
+
+
 	}
 
 
@@ -1012,7 +970,7 @@ class MyProject : public BaseProject {
 		//static glm::mat4 viewMatrix = lookIn(cameraPos, glm::radians(cameraYPR.x), glm::radians(cameraYPR.y), glm::radians(cameraYPR.z)); // camera starts looking down
 
 		static float linearSpeed = 1.0f;
-		static float angularSpeed = glm::radians(50.0f);
+		static float angularSpeed = 50;
 
 		glm::vec3 mov = glm::vec3(0, 0, 0);
 		glm::vec3 rot = glm::vec3(0, 0, 0);
@@ -1043,46 +1001,30 @@ class MyProject : public BaseProject {
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_J)) {
-			rot.y -= 1;
-		}
-
-		if (glfwGetKey(window, GLFW_KEY_L)) {
-			rot.y += 1;
-		}
-
-		if (glfwGetKey(window, GLFW_KEY_K)) {
-			rot.x += 1;
-		}
-
-		if (glfwGetKey(window, GLFW_KEY_I)) {
 			rot.x -= 1;
 		}
 
-		if (glfwGetKey(window, GLFW_KEY_U)) {
-			rot.z -= 1;
+		if (glfwGetKey(window, GLFW_KEY_L)) {
+			rot.x += 1;
 		}
 
-		if (glfwGetKey(window, GLFW_KEY_O)) {
-			rot.z += 1;
+		if (glfwGetKey(window, GLFW_KEY_K)) {
+			rot.y -= 1;
 		}
 
-		// rot.y *= -1;
-		// mov.y *= -1;
+		if (glfwGetKey(window, GLFW_KEY_I)) {
+			rot.y += 1;
+		}
 
-		if(rot!=glm::vec3(0)) cameraQuat *= glm::rotate(glm::quat(1, 0, 0, 0), angularSpeed * deltaTime, rot);
+		cameraYPR += angularSpeed * deltaTime * rot;
 
-		glm::vec3 translationDirection = glm::vec3(glm::mat4(cameraQuat) * glm::vec4(mov, 1));
+		glm::vec3 translation = glm::vec3(glm::rotate(glm::mat4(1.0), -glm::radians(cameraYPR.z), glm::vec3(0, 0, 1))
+			* glm::rotate(glm::mat4(1.0), -glm::radians(cameraYPR.y), glm::vec3(1, 0, 0))
+			* glm::rotate(glm::mat4(1.0), -glm::radians(cameraYPR.x), glm::vec3(0, 1, 0)) * linearSpeed * deltaTime * glm::vec4(mov, 0));
 
-		glm::vec3 ux = glm::vec3(glm::mat4(cameraQuat) * glm::vec4(1, 0, 0, 1));
-		glm::vec3 uy = glm::vec3(glm::mat4(cameraQuat) * glm::vec4(0, 1, 0, 1));
-		glm::vec3 uz = glm::vec3(glm::mat4(cameraQuat) * glm::vec4(0, 0, 1, 1));
+		translation.z *= -1;
 
-		if (translationDirection != glm::vec3(0))
-			std::cerr << translationDirection.x << " " << translationDirection.y << " " << translationDirection.z << std::endl;
-
-		cameraPos += ux * linearSpeed * deltaTime * mov.x;
-		cameraPos += uy * linearSpeed * deltaTime * mov.y;
-		cameraPos += uz * linearSpeed * deltaTime * mov.z;
+		cameraPos += translation;
 
 		if (cameraPos.x < -PLANE_SCALE) cameraPos.x = -PLANE_SCALE;
 		if (cameraPos.x > PLANE_SCALE) cameraPos.x = PLANE_SCALE;
