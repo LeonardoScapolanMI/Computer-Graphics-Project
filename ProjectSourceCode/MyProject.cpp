@@ -768,13 +768,13 @@ class MyProject : public BaseProject {
 			P1.pipelineLayout, 0, 1, &globalDS.descriptorSets[currentImage],
 			0, nullptr);
 
+		backgroundModelInfo.drawModel(P1, commandBuffer, currentImage, 1);
 		
 		trayModelInfo.drawModel(P1, commandBuffer, currentImage, 1);
 		for (PieceModelInfo mi : piecesModelInfo)
 		{
 			mi.drawModel(P1, commandBuffer, currentImage, 1);
 		}
-		backgroundModelInfo.drawModel(P1, commandBuffer, currentImage, 1);
 
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
 			PWireframe.graphicsPipeline);
