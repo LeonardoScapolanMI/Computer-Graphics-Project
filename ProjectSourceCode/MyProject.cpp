@@ -177,6 +177,13 @@ glm::mat4 lookIn(glm::vec3 cameraPos, glm::vec3 YPR) {
 		* glm::translate(glm::mat4(1.0), -cameraPos);
 }
 
+// function to make a look in view matrix starting from the camera position and it's rotation
+// cameraPos: coordinates of the camera
+// q: quaternion expressing the rotation
+glm::mat4 lookIn(glm::vec3 cameraPos, glm::quat q) {
+	return glm::mat4(q) * glm::translate(glm::mat4(1.0), -cameraPos);
+}
+
 // function to make a world matrix starting from the object position, rotation (angles in degrees) and scale
 // pos: coordinates of the object
 // YPR: yaw(x), pitch(y) and roll(z) of the object
@@ -446,7 +453,8 @@ class MyProject : public BaseProject {
 	SelectionState nextSelectionMode = SelectionState::SELECTION_MODE;
 
 	glm::vec3 cameraPos = glm::vec3(0.0f, 8.0f, 0.0f);
-	glm::vec3 cameraYPR = glm::vec3(0.0f, -90.0f, 0.0f);
+	// glm::vec3 cameraYPR = glm::vec3(0.0f, -90.0f, 0.0f);
+	glm::quat cameraQuat = glm::rotate(glm::quat(1, 0, 0, 0), glm::radians(90.0f), glm::vec3(1, 0, 0));
 
 	static void pieceMovementKey_callback(MyProject* that, int key, int scancode, int action, int mods) {
 		static std::vector<int> modelToSkipIndexes = {};
@@ -817,7 +825,7 @@ class MyProject : public BaseProject {
 
 		void* data;
 		globalUniformBufferObject gubo{};
-		gubo.view = lookIn(cameraPos, cameraYPR);
+		gubo.view = lookIn(cameraPos, cameraQuat);
 		gubo.proj = glm::perspective(glm::radians(45.0f),
 			swapChainExtent.width / (float)swapChainExtent.height,
 			NEAR_PLANE, FAR_PLANE);
@@ -843,7 +851,7 @@ class MyProject : public BaseProject {
 			glm::vec3 selectedPieceBaricenterPosition = piecesModelInfo[selectedPieceIndex].baricenterPosition();
 			gubo.spotlight_pos = glm::vec3(selectedPieceBaricenterPosition.x, spotlightY, selectedPieceBaricenterPosition.z);
 
-			gubo.paramDecay = glm::vec4(20.0f, 1.0f, spotlightY / sqrt(spotlightY * spotlightY + 2 * 2), spotlightY / sqrt(spotlightY * spotlightY + 2.5 * 2.5)); //g, decay, Cin, Cout
+			gubo.paramDecay = glm::vec4(15.0f, 1.0f, spotlightY / sqrt(spotlightY * spotlightY + 2 * 2), spotlightY / sqrt(spotlightY * spotlightY + 2.5 * 2.5)); //g, decay, Cin, Cout
 
 			break;
 		}
@@ -911,7 +919,7 @@ class MyProject : public BaseProject {
 		//static glm::mat4 viewMatrix = lookIn(cameraPos, glm::radians(cameraYPR.x), glm::radians(cameraYPR.y), glm::radians(cameraYPR.z)); // camera starts looking down
 
 		static float linearSpeed = 1.0f;
-		static float angularSpeed = 50;
+		static float angularSpeed = glm::radians(50.0f);
 
 		glm::vec3 mov = glm::vec3(0, 0, 0);
 		glm::vec3 rot = glm::vec3(0, 0, 0);
@@ -942,30 +950,46 @@ class MyProject : public BaseProject {
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_J)) {
-			rot.x -= 1;
-		}
-
-		if (glfwGetKey(window, GLFW_KEY_L)) {
-			rot.x += 1;
-		}
-
-		if (glfwGetKey(window, GLFW_KEY_K)) {
 			rot.y -= 1;
 		}
 
-		if (glfwGetKey(window, GLFW_KEY_I)) {
+		if (glfwGetKey(window, GLFW_KEY_L)) {
 			rot.y += 1;
 		}
 
-		cameraYPR += angularSpeed * deltaTime * rot;
+		if (glfwGetKey(window, GLFW_KEY_K)) {
+			rot.x += 1;
+		}
 
-		glm::vec3 translation = glm::vec3(glm::rotate(glm::mat4(1.0), -glm::radians(cameraYPR.z), glm::vec3(0, 0, 1))
-			* glm::rotate(glm::mat4(1.0), -glm::radians(cameraYPR.y), glm::vec3(1, 0, 0))
-			* glm::rotate(glm::mat4(1.0), -glm::radians(cameraYPR.x), glm::vec3(0, 1, 0)) * linearSpeed * deltaTime * glm::vec4(mov, 0));
+		if (glfwGetKey(window, GLFW_KEY_I)) {
+			rot.x -= 1;
+		}
 
-		translation.z *= -1;
+		if (glfwGetKey(window, GLFW_KEY_U)) {
+			rot.z -= 1;
+		}
 
-		cameraPos += translation;
+		if (glfwGetKey(window, GLFW_KEY_O)) {
+			rot.z += 1;
+		}
+
+		// rot.y *= -1;
+		// mov.y *= -1;
+
+		if(rot!=glm::vec3(0)) cameraQuat *= glm::rotate(glm::quat(1, 0, 0, 0), angularSpeed * deltaTime, rot);
+
+		glm::vec3 translationDirection = glm::vec3(glm::mat4(cameraQuat) * glm::vec4(mov, 1));
+
+		glm::vec3 ux = glm::vec3(glm::mat4(cameraQuat) * glm::vec4(1, 0, 0, 1));
+		glm::vec3 uy = glm::vec3(glm::mat4(cameraQuat) * glm::vec4(0, 1, 0, 1));
+		glm::vec3 uz = glm::vec3(glm::mat4(cameraQuat) * glm::vec4(0, 0, 1, 1));
+
+		if (translationDirection != glm::vec3(0))
+			std::cerr << translationDirection.x << " " << translationDirection.y << " " << translationDirection.z << std::endl;
+
+		cameraPos += ux * linearSpeed * deltaTime * mov.x;
+		cameraPos += uy * linearSpeed * deltaTime * mov.y;
+		cameraPos += uz * linearSpeed * deltaTime * mov.z;
 
 		if (cameraPos.x < -PLANE_SCALE) cameraPos.x = -PLANE_SCALE;
 		if (cameraPos.x > PLANE_SCALE) cameraPos.x = PLANE_SCALE;
