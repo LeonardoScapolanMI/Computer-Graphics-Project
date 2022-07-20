@@ -282,11 +282,10 @@ glm::mat4 MakeWorldMatrixEuler(glm::vec3 pos, glm::vec3 YPR, glm::vec3 size) {
 
 
 // The uniform buffer object that will be fed to the pipline
-struct globalUniformBufferObject {
+struct GlobalUniformBufferObject {
 	alignas(16) glm::mat4 view;
 	alignas(16) glm::mat4 proj;
 	alignas(16) glm::vec3 ambientLight;
-	alignas(16) glm::vec3 ambientLightDirection;
 	alignas(16) glm::vec3 eyePos;
 	alignas(16) glm::vec4 paramDecay;
 	alignas(16) glm::vec3 spotlight_pos;
@@ -297,6 +296,11 @@ struct UniformBufferObject {
 	alignas(16) glm::mat4 normalMatrix;
 	alignas(16) glm::vec4 color;
 	alignas(4) float selected;
+};
+
+struct WireframeGlobalUniformBufferObject {
+	alignas(16) glm::mat4 view;
+	alignas(16) glm::mat4 proj;
 };
 
 struct WireframeUniformBufferObject {
@@ -630,6 +634,7 @@ class MyProject : public BaseProject {
 	DescriptorSetLayout DSLobj;
 	DescriptorSetLayout DSLSkyBox;
 	DescriptorSetLayout DSLWireframe;
+	DescriptorSetLayout DSLGlobalWireframe;
 
 	// Pipelines [Shader couples]
 	Pipeline P1;
@@ -649,6 +654,7 @@ class MyProject : public BaseProject {
 	Texture pieceTexture;
 	Texture backgroundTexture;
 	DescriptorSet globalDS;
+	DescriptorSet globalWireframeDS;
 
 
 
@@ -663,9 +669,9 @@ class MyProject : public BaseProject {
 		initialBackgroundColor = {0.0f, 0.0f, 0.0f, 1.0f};
 		
 		// Descriptor pool sizes
-		uniformBlocksInPool = 1 + 1 + 3 * PIECES_MODEL_PRE_INFO.size() + 1 + 1; //global + 1 per model (tray, pieces, background, wireframe) and another for each piece + skybox
+		uniformBlocksInPool = 2 + 1 + 3 * PIECES_MODEL_PRE_INFO.size() + 1 + 1; //2 global + 1 per model (tray, pieces, background, wireframe) and another for each piece + skybox
 		texturesInPool = 4;
-		setsInPool = 1 + 1 + 3 * PIECES_MODEL_PRE_INFO.size() + 1 + 1;
+		setsInPool = 2 + 1 + 3 * PIECES_MODEL_PRE_INFO.size() + 1 + 1;
 	}
 
 	// Here you load and setup all your Vulkan objects
@@ -677,7 +683,6 @@ class MyProject : public BaseProject {
 					// second element : the time of element (buffer or texture)
 					// third  element : the pipeline stage where it will be used
 					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS}
-					// {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
 				  });
 
 		DSLobj.init(this, {
@@ -692,7 +697,10 @@ class MyProject : public BaseProject {
 
 		DSLWireframe.init(this, {
 					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS},
-					//{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
+			});
+
+		DSLGlobalWireframe.init(this, {
+					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS},
 			});
 
 		// Pipelines [Shader couples]
@@ -700,7 +708,7 @@ class MyProject : public BaseProject {
 		// be used in this pipeline. The first element will be set 0, and so on..
 		P1.init(this, "shaders/vert.spv", "shaders/frag.spv", { &DSLglobal, &DSLobj });
 		PSkyBox.init(this, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", { &DSLSkyBox }, VK_COMPARE_OP_LESS_OR_EQUAL);
-		PWireframe.init(this, "shaders/WireframeVert.spv", "shaders/WireframeFrag.spv", { &DSLglobal, &DSLWireframe }, true);
+		PWireframe.init(this, "shaders/WireframeVert.spv", "shaders/WireframeFrag.spv", { &DSLGlobalWireframe, &DSLWireframe }, true);
 
 
 		// Models, textures and Descriptors (values assigned to the uniforms)
@@ -804,8 +812,17 @@ class MyProject : public BaseProject {
 		// second element : UNIFORM or TEXTURE (an enum) depending on the type
 		// third  element : only for UNIFORMs, the size of the corresponding C++ object
 		// fourth element : only for TEXTUREs, the pointer to the corresponding texture object
-					{0, UNIFORM, sizeof(globalUniformBufferObject), nullptr, nullptr}
+					{0, UNIFORM, sizeof(GlobalUniformBufferObject), nullptr, nullptr}
 				});
+		globalWireframeDS.init(this, &DSLglobal, {
+			// the second parameter, is a pointer to the Uniform Set Layout of this set
+			// the last parameter is an array, with one element per binding of the set.
+			// first  elmenet : the binding number
+			// second element : UNIFORM or TEXTURE (an enum) depending on the type
+			// third  element : only for UNIFORMs, the size of the corresponding C++ object
+			// fourth element : only for TEXTUREs, the pointer to the corresponding texture object
+						{0, UNIFORM, sizeof(WireframeGlobalUniformBufferObject), nullptr, nullptr}
+			});
 
 		glfwSetWindowUserPointer(window, this);
 		glfwSetKeyCallback(window, key_callback);
@@ -816,8 +833,10 @@ class MyProject : public BaseProject {
 		trayTexture.cleanup();
 		pieceTexture.cleanup();
 		skyBoxTexture.cleanup();
-		globalDS.cleanup();
 
+		globalDS.cleanup();
+		globalWireframeDS.cleanup();
+		
 		skyBoxModelInfo.cleanup();
 		trayModelInfo.cleanup();
 		for (PieceModelInfo mi : piecesModelInfo)
@@ -835,10 +854,12 @@ class MyProject : public BaseProject {
 		P1.cleanup();
 		PSkyBox.cleanup();
 		PWireframe.cleanup();
+
 		DSLglobal.cleanup();
 		DSLobj.cleanup();
 		DSLSkyBox.cleanup();
 		DSLWireframe.cleanup();
+		DSLGlobalWireframe.cleanup();
 	}
 	
 	// Here it is the creation of the command buffer:
@@ -906,7 +927,7 @@ class MyProject : public BaseProject {
 		updateCameraPos(dt);
 
 		void* data;
-		globalUniformBufferObject gubo{};
+		GlobalUniformBufferObject gubo{};
 		gubo.view = lookIn(cameraPos, cameraQuat);
 		gubo.proj = glm::perspective(glm::radians(45.0f),
 			swapChainExtent.width / (float)swapChainExtent.height,
@@ -914,11 +935,16 @@ class MyProject : public BaseProject {
 		gubo.proj[1][1] *= -1;
 		gubo.eyePos = cameraPos;
 		gubo.ambientLight = glm::vec3(0.3f, 0.3f, 0.3f);
-		gubo.ambientLightDirection = glm::vec3(0.0f, -1.0f, 0.0f);
+
+		static const float spotlightY = 20.0f;
+		static const float CCin = spotlightY / sqrt(spotlightY * spotlightY + 4 * 4);
+		static const float CCout = spotlightY / sqrt(spotlightY * spotlightY + 5 * 5);
+		static const float SPCin = spotlightY / sqrt(spotlightY * spotlightY + 2.3 * 2.3);
+		static const float SPCout = spotlightY / sqrt(spotlightY * spotlightY + 2.8 * 2.8);
 
 		switch (visualizationMode) {
 		case VisualizationMode::SPOTLIGHT_ON_COMPOSITION:
-			gubo.paramDecay = glm::vec4(8.0f, 1.0f, 0.80f, 0.75f); //g, decay, Cin, Cout
+			gubo.paramDecay = glm::vec4(15.0f, 1.0f, CCin, CCout); //g, decay, Cin, Cout
 
 			glm::vec3 compositionBaricenterPosition = glm::vec3(0);
 			for (PieceModelInfo pmi : piecesModelInfo) {
@@ -926,14 +952,13 @@ class MyProject : public BaseProject {
 			}
 			compositionBaricenterPosition /= piecesModelInfo.size();
 
-			gubo.spotlight_pos = glm::vec3(compositionBaricenterPosition.x, 6.0f, compositionBaricenterPosition.z);
+			gubo.spotlight_pos = glm::vec3(compositionBaricenterPosition.x, spotlightY, compositionBaricenterPosition.z);
 			break;
 		case VisualizationMode::SPOTLIGHT_ON_SELECTED_PIECE:
-			float spotlightY = 20.0f;
 			glm::vec3 selectedPieceBaricenterPosition = piecesModelInfo[selectedPieceIndex].baricenterPosition();
 			gubo.spotlight_pos = glm::vec3(selectedPieceBaricenterPosition.x, spotlightY, selectedPieceBaricenterPosition.z);
 
-			gubo.paramDecay = glm::vec4(15.0f, 1.0f, spotlightY / sqrt(spotlightY * spotlightY + 2 * 2), spotlightY / sqrt(spotlightY * spotlightY + 2.5 * 2.5)); //g, decay, Cin, Cout
+			gubo.paramDecay = glm::vec4(17.0f, 1.0f, SPCin, SPCout); //g, decay, Cin, Cout
 
 			break;
 		}
@@ -944,14 +969,23 @@ class MyProject : public BaseProject {
 		memcpy(data, &gubo, sizeof(gubo));
 		vkUnmapMemory(device, globalDS.uniformBuffersMemory[0][currentImage]);
 
+
+		WireframeGlobalUniformBufferObject wgubo{};
+		wgubo.view = gubo.view;
+		wgubo.proj = gubo.view;
+
+		vkMapMemory(device, globalWireframeDS.uniformBuffersMemory[0][currentImage], 0,
+			sizeof(wgubo), 0, &data);
+		memcpy(data, &wgubo, sizeof(wgubo));
+		vkUnmapMemory(device, globalWireframeDS.uniformBuffersMemory[0][currentImage]);
+
+
 		SkyBoxUniformBufferObject skbubo{};
 		skbubo.mvpMat = gubo.proj * gubo.view * skyBoxModelInfo.makeWorldMatrixEuler();
 		vkMapMemory(device, skyBoxModelInfo.DS.uniformBuffersMemory[0][currentImage], 0,
 			sizeof(skbubo), 0, &data);
 		memcpy(data, &skbubo, sizeof(skbubo));
 		vkUnmapMemory(device, skyBoxModelInfo.DS.uniformBuffersMemory[0][currentImage]);
-
-
 	}
 
 

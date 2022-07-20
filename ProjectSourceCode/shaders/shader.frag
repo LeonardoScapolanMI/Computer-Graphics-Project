@@ -6,7 +6,6 @@ layout(set = 0, binding = 0) uniform globalUniformBufferObject {
 	mat4 view;
 	mat4 proj;
 	vec3 ambientLight;
-	vec3 ambientLightDirection;
 	vec3 eyePos;
 	vec4 paramDecay;
 	vec3 spotlight_pos;
@@ -29,19 +28,12 @@ layout(location = 0) out vec4 outColor;
 void main() {
 	vec3  diffColor = texture(texSampler, fragTexCoord).rgb * ubo.color.rgb;
 
-	/*
-	if(ubo.selected > 0){
-		const float whiteWeight = 0.8f;
-		diffColor = (diffColor + whiteWeight * vec3(1.0f, 1.0f, 1.0f)) / (1+whiteWeight);
-	}
-	*/
-
 	vec3 lightColor_Spot = vec3(0.9f, 0.9f, 0.9f);
 	vec3 lightPos_Spot = gubo.spotlight_pos;
 	vec3 direction_Spot = - normalize(vec3(0.0f, -1.0f, 0.0f));
 
-	const vec3  specColor = vec3(0.5f, 0.5f, 0.5f);
-	const float specPower = 32.0f;
+	const vec3  specColor = vec3(0.3f, 0.3f, 0.3f);
+	const float specPower = 150.0f;
 
 
 	vec3 lD = normalize(lightPos_Spot - fragPos); //light direction
@@ -58,7 +50,7 @@ void main() {
 	// Lambert diffuse
 	vec3 diffuse  = diffColor * max(dot(N,lD), 0.0f);
 	// Phong specular
-	vec3 specular = vec3(0); //specColor * pow(max(dot(EyeDir, R), 0.0f), specPower);
+	vec3 specular = specColor * pow(max(dot(EyeDir, R), 0.0f), specPower);
 	// Hemispheric ambient
 	vec3 ambient  = (vec3(0.1f,0.1f, 0.1f) * (1.0f + N.y) + vec3(0.3f,0.3f,0.3f) * (1.0f - N.y)) * diffColor;
 
