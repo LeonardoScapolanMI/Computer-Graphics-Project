@@ -839,11 +839,11 @@ class MyProject : public BaseProject {
 			gubo.spotlight_pos = glm::vec3(compositionBaricenterPosition.x, 6.0f, compositionBaricenterPosition.z);
 			break;
 		case VisualizationMode::SPOTLIGHT_ON_SELECTED_PIECE:
-			float spotlightY = 30.0f;
+			float spotlightY = 20.0f;
 			glm::vec3 selectedPieceBaricenterPosition = piecesModelInfo[selectedPieceIndex].baricenterPosition();
 			gubo.spotlight_pos = glm::vec3(selectedPieceBaricenterPosition.x, spotlightY, selectedPieceBaricenterPosition.z);
 
-			gubo.paramDecay = glm::vec4(40.0f, 1.0f, spotlightY / sqrt(spotlightY * spotlightY + 2 * 2), spotlightY / sqrt(spotlightY * spotlightY + 2.5 * 2.5)); //g, decay, Cin, Cout
+			gubo.paramDecay = glm::vec4(20.0f, 1.0f, spotlightY / sqrt(spotlightY * spotlightY + 2 * 2), spotlightY / sqrt(spotlightY * spotlightY + 2.5 * 2.5)); //g, decay, Cin, Cout
 
 			break;
 		}
