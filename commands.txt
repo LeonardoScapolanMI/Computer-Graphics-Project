@@ -1,0 +1,26 @@
+IN SELECTION MODE:
+WASD -> change selected piece
+SPACE -> pick up a piece and pass to "Traslation mode"
+
+
+IN TRASLATION MODE:
+WASD -> move piece
+QE -> rotate piece along the axis paralel to the table
+R -> flip (rotate 180°) the piece along the vertical axis
+T -> flip (rotate 180°) the piece along the horizontal axis
+SPACE -> release the piece and pass to "Selection mode"
+
+
+IN ANY MODE:
+Arrow keys -> move the camera along the vertical and horizontal axis
+Z -> move the camera forward
+X -> move the camera backwords
+IK -> rotate the camera arround the horizontal axis (rotate up and down)
+JL -> rotate the camera arround the vertical axis (rotate left and right)
+UO -> rotate the camera arround the axis perpendicular to the screen (incline left and right)
+
+M -> change spotlight mode between pointing to selected piece or pointing to the whole composition
+0123 -> change complete composition previews
+
+
+
