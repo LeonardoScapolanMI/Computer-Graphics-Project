@@ -87,7 +87,7 @@ const std::vector<CompositionInfo> COMPOSITION_INFOS = {
 		}
 	},
 	{
-		glm::vec3(OFFSET_COMPOSITION_X, PIECES_BASE_Y, OFFSET_COMPOSITION_Z),
+		glm::vec3(OFFSET_COMPOSITION_X, PIECES_BASE_Y, OFFSET_COMPOSITION_Z + 1),
 		{
 			{
 				glm::vec3(180.0f, 0.0f, 0.0f),
@@ -127,7 +127,7 @@ const std::vector<CompositionInfo> COMPOSITION_INFOS = {
 		}
 	},
 	{
-		glm::vec3(OFFSET_COMPOSITION_X, PIECES_BASE_Y, OFFSET_COMPOSITION_Z),
+		glm::vec3(OFFSET_COMPOSITION_X, PIECES_BASE_Y, OFFSET_COMPOSITION_Z - 1),
 		{
 			{
 				glm::vec3(0.0f, 0.0f, 0.0f),
@@ -167,7 +167,7 @@ const std::vector<CompositionInfo> COMPOSITION_INFOS = {
 		}
 	},
 	{
-		glm::vec3(OFFSET_COMPOSITION_X, PIECES_BASE_Y, OFFSET_COMPOSITION_Z),
+		glm::vec3(OFFSET_COMPOSITION_X, PIECES_BASE_Y, OFFSET_COMPOSITION_Z - 1.5),
 		{
 			{
 				glm::vec3(90.0f, 0.0f, 0.0f),
