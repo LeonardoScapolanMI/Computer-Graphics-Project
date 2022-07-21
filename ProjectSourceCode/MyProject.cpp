@@ -1143,23 +1143,37 @@ class MyProject : public BaseProject {
 			rot.z += 1;
 		}
 
-		// rot.y *= -1;
-		mov.y *= -1;
+		glm::mat4 rotMat = glm::inverse(glm::mat4(cameraQuat));
+		glm::vec3 ux = glm::vec3(rotMat * glm::vec4(1, 0, 0, 1));
+		glm::vec3 uy = glm::vec3(rotMat * glm::vec4(0, 1, 0, 1));
+		glm::vec3 uz = glm::vec3(rotMat * glm::vec4(0, 0, 1, 1));
 
-		if(rot!=glm::vec3(0)) cameraQuat *= glm::rotate(glm::quat(1, 0, 0, 0), angularSpeed * deltaTime, rot);
+		//if (glfwGetKey(window, GLFW_KEY_V)) {
+		//	std::cerr << "mat1: " << rotMat[0][0] << " " << rotMat[0][1] << " " << rotMat[0][2] << " " << rotMat[0][3] << std::endl;
+		//	std::cerr << "mat2: " << rotMat[1][0] << " " << rotMat[1][1] << " " << rotMat[1][2] << " " << rotMat[1][3] << std::endl;
+		//	std::cerr << "mat3: " << rotMat[2][0] << " " << rotMat[2][1] << " " << rotMat[2][2] << " " << rotMat[2][3] << std::endl;
+		//	std::cerr << "mat4: " << rotMat[3][0] << " " << rotMat[3][1] << " " << rotMat[3][2] << " " << rotMat[3][3] << std::endl;
+		//	std::cerr << "ux: " << ux.x << " " << ux.y << " " << ux.z << std::endl;
+		//	std::cerr << "uy: " << uy.x << " " << uy.y << " " << uy.z << std::endl;
+		//	std::cerr << "uz: " << uz.x << " " << uz.y << " " << uz.z << std::endl;
+		//}
 
-		glm::vec3 translationDirection = glm::vec3(glm::mat4(cameraQuat) * glm::vec4(mov, 1));
 
-		glm::vec3 ux = glm::vec3(glm::mat4(cameraQuat) * glm::vec4(1, 0, 0, 1));
-		glm::vec3 uy = glm::vec3(glm::mat4(cameraQuat) * glm::vec4(0, 1, 0, 1));
-		glm::vec3 uz = glm::vec3(glm::mat4(cameraQuat) * glm::vec4(0, 0, 1, 1));
+		if (rot.x != 0) cameraQuat *= glm::rotate(glm::quat(1, 0, 0, 0), angularSpeed * deltaTime * rot.x, ux);
+		if (rot.y != 0) cameraQuat *= glm::rotate(glm::quat(1, 0, 0, 0), angularSpeed * deltaTime * rot.y, uy);
+		if (rot.z != 0) cameraQuat *= glm::rotate(glm::quat(1, 0, 0, 0), angularSpeed * deltaTime * rot.z, uz);
 
+		// if (rot != glm::vec3(0)) cameraQuat *= glm::rotate(glm::quat(1, 0, 0, 0), angularSpeed * deltaTime, rot);
+
+		/*glm::vec3 translationDirection = glm::vec3(glm::mat4(cameraQuat) * glm::vec4(mov, 1));
 		if (translationDirection != glm::vec3(0))
-			std::cerr << translationDirection.x << " " << translationDirection.y << " " << translationDirection.z << std::endl;
+			std::cerr << translationDirection.x << " " << translationDirection.y << " " << translationDirection.z << std::endl;*/
 
-		cameraPos += ux * linearSpeed * deltaTime * mov.x;
-		cameraPos += uy * linearSpeed * deltaTime * mov.y;
-		cameraPos += uz * linearSpeed * deltaTime * mov.z;
+		glm::vec3 dp = ux * linearSpeed * deltaTime * mov.x;
+		dp += uy * linearSpeed * deltaTime * mov.y;
+		dp += uz * linearSpeed * deltaTime * mov.z;
+
+		cameraPos += dp;
 
 		if (cameraPos.x < -PLANE_SCALE) cameraPos.x = -PLANE_SCALE;
 		if (cameraPos.x > PLANE_SCALE) cameraPos.x = PLANE_SCALE;
